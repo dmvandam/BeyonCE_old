@@ -6,13 +6,13 @@ install or the github repository (https://github.com/EdanRein/pyPplusS).
 The scientific paper describing the package and astrophysical applications was
 published (https://academic.oup.com/mnras/article-abstract/490/1/1111/5568385).
 
-pyPplusS was adapted in the simulate_lightcurve function as such
+pyPplusS was adapted in the simulate_lightcurve function as such:
     1. where pyPplusS determines the amount of light blocked by the occulter
        in physical space, this module converts to time space as follows
 
         a. introduces the transverse velocity to convert positions to time
         b. generalises the movement by assuming that the planet transits the
-           star in a straight line with fixed impact parameter 
+           star in a straight line with fixed impact parameter
 
     2. where pyPplusS allows a singular ringed planet, here we extend it so
        that an extended ring system can be modelled
@@ -65,7 +65,7 @@ def simulate_lightcurve(time, planet_radius, inner_radii, outer_radii,
                         opacities, inclination, tilt, impact_parameter, dt, 
                         limb_darkening, transverse_velocity=1):
     '''
-    This function simulates a light curve based on the input parameters
+    This function simulates a light curve based on the input parameters.
 
     Parameters
     ----------
@@ -164,7 +164,7 @@ def generate_random_ringsystem(radius_max, ring_num_min=3, ring_num_max=12,
                                tau_min=0.0, tau_max=1.0, print_rings=True):
     '''
     This function splits a disk into a ring system with a random number of
-    rings each with random opacities
+    rings each with random opacities.
     
     Parameters
     ----------
@@ -218,7 +218,7 @@ def generate_random_ringsystem(radius_max, ring_num_min=3, ring_num_max=12,
 
 def add_noise(lightcurve, noise_func, noise_args, seed=None):
     '''
-    this function adds noise to the light curve given a random number function
+    This function adds noise to the light curve given a random number function
     and its given inputs. It also then re-normalises the lightcurve with the
     out-of-eclipse data.
 
@@ -292,7 +292,7 @@ def remove_data(time, lightcurve, remove=None):
 def calculate_slope(time, lightcurve, slope_bounds):
     '''
     This function determines the slope of the light curve, between the times
-    defined by slope bounds
+    defined by slope bounds.
 
     Parameters
     ----------
@@ -322,7 +322,7 @@ def calculate_slope(time, lightcurve, slope_bounds):
 def calculate_slopes(time, lightcurve, slope_bounds_list):
     '''
     This function bulkifies the calculate slope function by requiring
-    a list of slope_bounds
+    a list of slope_bounds.
 
     Parameters
     ----------
@@ -432,7 +432,7 @@ def get_slope_line(time, lightcurve, slope_times, slopes, length=0.1):
     '''
     This function produces the (x, y) coordinates of a line that represents
     each slope in the light curve at the correct position on the plot
-    (slope_times, lightcurve @ slope_times)
+    (slope_times, lightcurve @ slope_times).
 
     Parameters
     ----------
@@ -542,8 +542,8 @@ def get_ringsystem_patches(planet_radius, inner_radii, outer_radii, opacities,
                            inclination, tilt, impact_parameter, dt, 
                            facecolor='black'):
     '''
-    This function all the matplotlib patches necessary to draw the ringsystem
-    defined by the input parameters.
+    This function produces all the matplotlib patches necessary to draw the 
+    ringsystem defined by the input parameters.
 
     Parameters
     ----------
@@ -668,7 +668,7 @@ def plot_ringsystem(ringsystem_patches, xlim=None, ylim=None, ax=None):
     ----------
     ringsystem_patches : list of matplotlib.patch
         list containing all the ring patches that make up the ring system
-        described by the input parameters and a circular patch for the planet
+        described by the input parameters and a circular patch for the planet.
     xlim : tuple
         x-limits of the plot
     ylim : tuple
@@ -703,7 +703,7 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
                   figsize=(12, 10)):
     '''
     This function creates a figure with two subplots, the ringsystem cartoon
-    on the top and the lightcurve on the bottom
+    on the top and the lightcurve on the bottom.
 
     Parameters
     ----------
@@ -727,8 +727,8 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
     
     Notes
     -----
-    for both ringsystem_params and lightcurve_params the axes object should
-    NOT be specified
+    For both ringsystem_params and lightcurve_params the axes object should
+    NOT be specified.
     '''
     fig = plt.figure(figsize=figsize)
     ax0 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
