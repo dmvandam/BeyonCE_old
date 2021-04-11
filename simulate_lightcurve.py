@@ -353,25 +353,6 @@ def calculate_slopes(time, lightcurve, slope_bounds_list):
         slopes[k] = slope
     return slope_times, slopes
 
-def slope_to_gradient(slopes):
-    '''
-    This function converts a light curve slope to a normalised projected
-    gradient, using the transformation gradient = np.abs(np.sin(slope)).
-    This converts the slope to a gradient that runs from 0 to 1.
-
-    Parameters
-    ----------
-    slopes : array_like (1-D)
-        slopes measured in the light curve [L*/day]
-    
-    Returns
-    -------
-    gradients : array_like (1-D)
-        gradients measured in the light curve [-]
-    '''
-    gradients = np.abs(np.sin(slopes))
-    return gradients
-
 def get_min_velocity(slopes, limb_darkening):
     '''
     This function determines the minimum transverse velocity of the occulting
@@ -750,12 +731,15 @@ if __name__ == "__main__":
     # import extra modules for demo
     from matplotlib.patches import Rectangle
     # start demos
+    print('')
     print('all the methods in simulate_lightcurve.py will be demoed here')
     print('=============================================================')
     print('')
     ### SIMULATE_LIGHTCURVE() ###
     print('1. simulate_lightcurve.simulate_lightcurve()')
     print('--------------------------------------------')
+    print('This function simulates the light curve of a transiting ring')
+    print('system and each of the ring system\'s components.')
     # initialise parameters
     print('  a. initialising input parameters:')
     time = np.linspace(-85, 85, 301)
@@ -801,6 +785,9 @@ if __name__ == "__main__":
     ### GENERATE RANDOM RINGSYSTEM() ###
     print('2. simulate_lightcurve.generate_random_ringsystem()')
     print('---------------------------------------------------')
+    print('This function breaks up a circumplanetary disk into a ring system')
+    print('by separating the disk into random connected rings with random')
+    print('opacities.')
     # intialise input parameters
     print('  a. initialising input parameters:')
     disk_radius = outer_radii[-1]
@@ -841,6 +828,8 @@ if __name__ == "__main__":
     ### ADD_NOISE() ###
     print('3. simulate_lightcurve.add_noise()')
     print('----------------------------------')
+    print('This function adds noise to a light curve given a certain noise')
+    print('distribution.')
     # intialise input parameters
     print('  a. intialising input parameters:')
     noise_func = np.random.normal
@@ -875,8 +864,12 @@ if __name__ == "__main__":
     plt.show()
     print('\n')
     ### REMOVE_DATA() ###
-    print('4. simulate_lightcurve.add_noise()')
-    print('----------------------------------')
+    print('4. simulate_lightcurve.remove_data()')
+    print('------------------------------------')
+    print('This function removes data from an eclipse in two fashions, either')
+    print('by supplying an integer (in which case that many random points will')
+    print('be removed) or an index array (removing those particular data')
+    print('points.')
     # intialise input parameters
     print('  a. initialising input parameters:')
     remove_int = 200 
@@ -908,6 +901,10 @@ if __name__ == "__main__":
     ### CALCULATE_SLOPES ###
     print('5. simulate_lightcurve.calculate_slopes()')
     print('-----------------------------------------')
+    print('This function is used to calculate slopes in the light curve that')
+    print('can be used for further processing (determining the minimum')
+    print('transverse velocity of the ringsystem and to carve out the sjalot')
+    print('explorer [separate BeyonCE module].')
     # initialise input parameters
     print('  a. initialising input parameters:')
     slope_bounds_list = [(-42, -39.5), (-32, -28.8), (25.5, 28.5), (46, 49.5)]
@@ -933,10 +930,23 @@ if __name__ == "__main__":
         ax.add_patch(bounds)
     ax.plot(time, lightcurve, 'kx')
     plt.show()
-
-#def slope_to_gradient(slopes):
-#def get_min_velocity(slopes, limb_darkening):
-#def get_min_disk_radius(min_velocity, eclipse_duration):
-#def get_slope_line(time, lightcurve, slope_times, slopes, length=0.1):
+    print('\n')
+    ### GET_MIN_VELOCITY() ###
+    print('6. simulate_lightcurve.get_min_velocity()')
+    print('-----------------------------------------')
+    print('This function follows equation 12 from Van Werkhoven et al. 2014')
+    print('(https://academic.oup.com/mnras/article/441/4/2845/1206172).')
+    print('The inputs are the measured slopes in the lightcurve, which can be')
+    print('measured using simulate_lightcurve.calculate_slopes() and the')
+    print('linear limb-darkening parameter of the star. [Demo n/a]')
+    print('\n')
+    ### GET_MIN_DISK_RADIUS ###
+    print('7. simulate_lightcurve.get_min_disk_radius()')
+    print('--------------------------------------------')
+    print('This function takes the minimum velocity of the disk provided by')
+    print('simulate_lightcurve.get_min_velocity() and the duration of the')
+    print('eclipse to determine the minimum disk radius of the transiting')
+    print('ring system. [Demo n/a]') 
+    print('\n')
 #def plot_combined(ringsystem_params, lightcurve_params, savename='test.png', 
 #                  figsize=(12, 10)):
