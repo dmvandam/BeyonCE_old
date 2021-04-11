@@ -596,7 +596,8 @@ def get_ringsystem_patches(planet_radius, inner_radii, outer_radii, opacities,
     return ringsystem_patches
 
 def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[], 
-                    components=True, xlim=None, ylim=None, ax=None):
+                    components=True, xlim=None, ylim=None, ax=None, ls='-',
+                    marker=None, color='k'):
     '''
     This function plots the light curve for the provided ringsystem and can
     include the slopes lines provided.
@@ -875,7 +876,7 @@ if __name__ == "__main__":
     print('----------------------------------')
     # intialise input parameters
     print('  a. initialising input parameters:')
-    remove_int = 65
+    remove_int = 200 
     remove_array = np.array([15, 16, 17, 18, 19, 20, 67, 68, 69, 70, 71, 72,
                              73, 74, 75, 76, 77, 78, 79, 80, 100, 101, 102,
                              103, 104, 230, 231, 232])
@@ -893,12 +894,14 @@ if __name__ == "__main__":
     fig.suptitle('Demo: simulate_lightcurve.remove_data()')
     for i in range(2):
         itime, ilightcurve = remove_data(time, lightcurve, remove[i])
-        axes[i] = plot_lightcurve(itime, ilightcurve, lightcurve_components,
-                                components=False, ax=axes[i])
+        axes[i] = plot_lightcurve(time, lightcurve, None, components=False, 
+                                  ax=axes[i])
+        axes[i].plot(time, lightcurve, 'ko', label='original lightcurve')
+        axes[i].plot(itime, ilightcurve, 'go', label='data after removal')
+        axes[i].legend()
         axes[i].set_title(remove_lbl[i])
     plt.show()
 
-#def remove_data(time, lightcurve, remove=None):
 #def calculate_slope(time, lightcurve, slope_bounds):
 #def slope_to_gradient(slopes):
 #def get_min_velocity(slopes, limb_darkening):
