@@ -68,14 +68,10 @@ plots, which are shaped like sjalots or onions.
 import numpy as np
 # timing / progress
 from tqdm import tqdm
-from time import time as time_now
-# really necessary?
-from scipy.optimize import curve_fit
-from simulate_lightcurve import simulate_lightcurve, divide_rings
 
 
 ###############################################################################
-############################## ARRAY EQUATIONS ################################
+############################ ELLIPSE PARAMETERS ###############################
 ###############################################################################
 
 def determine_fx(te, dy, fy):
@@ -288,84 +284,10 @@ def slope_to_gradient(slope):
     gradient = np.abs(np.sin(np.arctan2(slope, 1)))
     return gradient
 
-def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
-    '''
-    Investigates the full parameter space for an eclipse of duration te with
-    centres at [-xmax, xmax] (2*nx), [-ymax, ymax] (2*ny)
 
-    Parameters
-    ----------
-    te : float
-        duration of the eclipse [day]
-    xmax : float
-        contains the maximum value of dx [day]
-    ymax : float
-        contains the maximum value of dy [day]
-    fy : float
-        contains the original y proportionality factor for the ellipse 
-        [default = 1]
-    measured_xs : list or array_like (1-D)
-        contains the time values where gradients have been measured in the
-        light curve [day]
-    nx : int
-        number of gridpoints in the x direction [default = 50]
-    ny : int
-        number of gridpoints in the y direction [default = 50]
-
-    Returns
-    -------
-    a : array_like (2-D)
-        semi-major axes of the ellipses investigated [day]
-    b : array_like (2-D)
-        semi-minor axes of the ellipses investigated [day]
-    tilt : array_like (2-D)
-        tilt angles of the ellipses investigated. This is the angle of the 
-        semi-major axis w.r.t. the x-axis. [deg]
-    inclination : array_like (2-D)
-        inclination angles of the ellipses investigated. Inclination is based
-        on the ratio of semi-minor to semi-major axis. [deg]
-    gradients : array_like (3-D)
-        gradients of the ellipse investigated at each of the measured x values.
-        Note that the measured x values are w.r.t. the eclipse midpoint i.e.
-        they should be between (-te/2, 0) and (te/2, 0).
-    '''
-    # creating grids / phase space
-    dy = np.linspace(0, ymax, ny)
-    dx = np.linspace(0, xmax, nx)
-    # determining sub-parameters
-    Fy = fy * np.ones((ny, nx))
-    Fx = determine_fx(te, dy, Fy)
-    s  = -dx[None, :] / dy[:, None]
-    s[np.isnan(s)] = 0 # correct (dx, dy) = (0, 0)
-    Rmin = np.hypot(te/2, dy)
-    # investigate phase space
-    a, b, tilt, inclination = ellipse_parameters(Rmin, s, Fx, Fy)
-    # fill quadrants
-    a = fill_quadrants(a)
-    b = fill_quadrants(b)
-    tilt = fill_quadrants(tilt, is_tilt=True)
-    inclination = fill_quadrants(inclination)
-    # determine slopes for each measured point
-    if isinstance(measured_xs, type(None)):
-        measured_xs = []
-    n_measured = len(measured_xs)
-    # if no measured points then gradients = None
-    if n_measured == 0:
-        gradients = None
-    # otherwise create an array and fill with the slopes
-    else:
-        gradients = np.zeros((n_measured, 2*ny-1, 2*nx-1))
-        # get full sub-parameters
-        DX = np.linspace(-xmax, xmax, 2 * nx - 1)
-        DY = np.linspace(-ymax, ymax, 2 * ny - 1)
-        S  = -DX[None, :] / DY[:, None]
-        S[np.isnan(S)] = 0
-        FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
-        FX = determine_fx(te, DY, FY)
-        for k, measured_x in enumerate(measured_xs):
-            slope = ellipse_slope(measured_x, DX, DY, S, FX, FY)
-            gradients[k] = slope_to_gradient(slope)
-    return a, b, tilt, inclination, gradients
+###############################################################################
+########################### PARAMETER EXPLORATION #############################
+###############################################################################
 
 def fill_quadrants(prop, is_tilt=False):
     '''
@@ -467,6 +389,85 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
         gradients[k][mask] = np.nan
     return a, b, tilt, inclination, gradients
 
+def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
+    '''
+    Investigates the full parameter space for an eclipse of duration te with
+    centres at [-xmax, xmax] (2*nx), [-ymax, ymax] (2*ny)
+
+    Parameters
+    ----------
+    te : float
+        duration of the eclipse [day]
+    xmax : float
+        contains the maximum value of dx [day]
+    ymax : float
+        contains the maximum value of dy [day]
+    fy : float
+        contains the original y proportionality factor for the ellipse 
+        [default = 1]
+    measured_xs : list or array_like (1-D)
+        contains the time values where gradients have been measured in the
+        light curve [day]
+    nx : int
+        number of gridpoints in the x direction [default = 50]
+    ny : int
+        number of gridpoints in the y direction [default = 50]
+
+    Returns
+    -------
+    a : array_like (2-D)
+        semi-major axes of the ellipses investigated [day]
+    b : array_like (2-D)
+        semi-minor axes of the ellipses investigated [day]
+    tilt : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis. [deg]
+    inclination : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis. [deg]
+    gradients : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        Note that the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0).
+    '''
+    # creating grids / phase space
+    dy = np.linspace(0, ymax, ny)
+    dx = np.linspace(0, xmax, nx)
+    # determining sub-parameters
+    Fy = fy * np.ones((ny, nx))
+    Fx = determine_fx(te, dy, Fy)
+    s  = -dx[None, :] / dy[:, None]
+    s[np.isnan(s)] = 0 # correct (dx, dy) = (0, 0)
+    Rmin = np.hypot(te/2, dy)
+    # investigate phase space
+    a, b, tilt, inclination = ellipse_parameters(Rmin, s, Fx, Fy)
+    # fill quadrants
+    a = fill_quadrants(a)
+    b = fill_quadrants(b)
+    tilt = fill_quadrants(tilt, is_tilt=True)
+    inclination = fill_quadrants(inclination)
+    # determine slopes for each measured point
+    if isinstance(measured_xs, type(None)):
+        measured_xs = []
+    n_measured = len(measured_xs)
+    # if no measured points then gradients = None
+    if n_measured == 0:
+        gradients = None
+    # otherwise create an array and fill with the slopes
+    else:
+        gradients = np.zeros((n_measured, 2*ny-1, 2*nx-1))
+        # get full sub-parameters
+        DX = np.linspace(-xmax, xmax, 2 * nx - 1)
+        DY = np.linspace(-ymax, ymax, 2 * ny - 1)
+        S  = -DX[None, :] / DY[:, None]
+        S[np.isnan(S)] = 0
+        FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
+        FX = determine_fx(te, DY, FY)
+        for k, measured_x in enumerate(measured_xs):
+            slope = ellipse_slope(measured_x, DX, DY, S, FX, FY)
+            gradients[k] = slope_to_gradient(slope)
+    return a, b, tilt, inclination, gradients
+
 def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     '''
     This function investigates the full parameter space (dx, dy, fy) based
@@ -555,10 +556,10 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
         ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, gc[k]<gradient)
     return ac, bc, tc, ic, gc
 
-def extract_all_solutions(a_cube, tilt_cube, inclination_cube, xmax, ymax):
+def grid_to_parameters(a_cube, tilt_cube, inclination_cube, xmax, ymax):
     '''
     This function extracts all the acceptable (non-NaN) solutions from the 
-    provided cubes
+    provided cubes and converts the grid points to parameter values.
 
     Parameters
     ----------
@@ -589,7 +590,7 @@ def extract_all_solutions(a_cube, tilt_cube, inclination_cube, xmax, ymax):
         all the possible x-offsets of the disk centres [day]
     '''
     # get cube shape
-    ny, nx, nf = a.shape
+    ny, nx, nf = a_cube.shape
     # set-up dx and dy grids
     yy, xx = np.mgrid[:ny, :nx]
     # normalise grids from -1 to +1
@@ -598,16 +599,24 @@ def extract_all_solutions(a_cube, tilt_cube, inclination_cube, xmax, ymax):
     # scale to -ymax to +ymax and -xmax to +xmax
     yy = ymax * yy
     xx = xmax * xx
+    # add the nf dimension
+    yy = np.repeat(yy[:, :, None], nf, 2)
+    xx = np.repeat(xx[:, :, None], nf, 2)
     # mask out the bad values
-    mask = ~np.isnan(a)
+    mask = ~np.isnan(a_cube)
     # apply masks
-    disk_radii = a[mask]
-    disk_tilts = tilt[mask]
-    disk_inclinations = inclination[mask]
+    disk_radii = a_cube[mask]
+    disk_tilts = tilt_cube[mask]
+    disk_inclinations = inclination_cube[mask]
     disk_impact_parameters = yy[mask]
     disk_dts = xx[mask]
-    return (disk_radii, disk_tilt, disk_inclinations, disk_impact_parameters,
+    return (disk_radii, disk_tilts, disk_inclinations, disk_impact_parameters,
             disk_dts)
+
+
+###############################################################################
+############################ VALIDATION FUNCTIONS #############################
+###############################################################################
 
 def get_closest_solution(a_cube, tilt_cube, inclination_cube, xmax, ymax, dfy,
                          disk_radius, disk_tilt, disk_inclination,
@@ -645,10 +654,30 @@ def get_closest_solution(a_cube, tilt_cube, inclination_cube, xmax, ymax, dfy,
     Returns
     -------
     dx : float
-        dx value of the closest solution
+        dx value of the closest solution [day]
     dy : float
-        dy value of the closest solution (i.e. impact parameter)
+        dy value of the closest solution [day]
     fy : float
         stretch factor value of the closest solution
+    best_indices : tuple
+        contains the indices for the closest solution
     '''
-    return None
+    # extract all the solutions from the provided grids
+    sjalot_parameters = grid_to_parameters(a_cube, tilt_cube, inclination_cube,
+                                           xmax, ymax)
+    radii, tilts, inclinations, impact_parameters, dts = sjalot_parameters
+    # determine the minimum distance
+    distance = np.sqrt((radii - disk_radius)**2 + (tilts - disk_tilt)**2 + 
+                       (inclinations - disk_inclinations)**2 + 
+                       (impact_parameters - disk_impact_parameter)**2)
+    # convert to sjalot coordinatesdetermine the sjalot parameters (parameters
+    # of the closest grid point)
+    best_ind = np.argmin(distance)
+    dx = dts[best_ind]
+    dy = impact_parameters[best_ind]
+    # df is more involved
+    mask = (a_cube == radii[best_ind]) * (tilt_cube == tilts[best_ind]) * ( 
+           inclinations_cube == inclinations[best_ind])
+    best_indices = np.unravel_index(np.argmax(mask), mask.shape)    
+    fy = dfy * best_indices[2]
+    return dx, dy, fy, best_indices
