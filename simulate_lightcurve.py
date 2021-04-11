@@ -577,8 +577,7 @@ def get_ringsystem_patches(planet_radius, inner_radii, outer_radii, opacities,
     return ringsystem_patches
 
 def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[], 
-                    components=True, xlim=None, ylim=None, ax=None, ls='-',
-                    marker=None, color='k'):
+                    components=True, xlim=None, ylim=None, ax=None):
     '''
     This function plots the light curve for the provided ringsystem and can
     include the slopes lines provided.
@@ -683,7 +682,7 @@ def plot_ringsystem(ringsystem_patches, xlim=None, ylim=None, ax=None):
     return ax
 
 def plot_combined(ringsystem_params, lightcurve_params, savename='test.png', 
-                  figsize=(12, 10)):
+                  figsize=(12, 10), title=''):
     '''
     This function creates a figure with two subplots, the ringsystem cartoon
     on the top and the lightcurve on the bottom.
@@ -703,6 +702,8 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
         name of the file to be saved [default = 'test.png']
     figsize : tuple
         size of the plot [default = (12, 10)]
+    title : str
+        title of the figure [default = '']
     
     Returns
     -------
@@ -714,6 +715,7 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
     NOT be specified.
     '''
     fig = plt.figure(figsize=figsize)
+    fig.suptitle(title)
     ax0 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
     ax1 = plt.subplot2grid((3, 1), (2, 0))
     ax0 = plot_ringsystem(*ringsystem_params, ax=ax0)
@@ -731,9 +733,9 @@ if __name__ == "__main__":
     # import extra modules for demo
     from matplotlib.patches import Rectangle
     # start demos
-    print('')
-    print('all the methods in simulate_lightcurve.py will be demoed here')
-    print('=============================================================')
+    print('========================================================')
+    print('ALL THE METHODS IN SIMULATE_LIGHTCURVE.PY WILL BE DEMOED')
+    print('========================================================')
     print('')
     ### SIMULATE_LIGHTCURVE() ###
     print('1. simulate_lightcurve.simulate_lightcurve()')
@@ -940,7 +942,7 @@ if __name__ == "__main__":
     print('measured using simulate_lightcurve.calculate_slopes() and the')
     print('linear limb-darkening parameter of the star. [Demo n/a]')
     print('\n')
-    ### GET_MIN_DISK_RADIUS ###
+    ### GET_MIN_DISK_RADIUS() ###
     print('7. simulate_lightcurve.get_min_disk_radius()')
     print('--------------------------------------------')
     print('This function takes the minimum velocity of the disk provided by')
@@ -948,5 +950,31 @@ if __name__ == "__main__":
     print('eclipse to determine the minimum disk radius of the transiting')
     print('ring system. [Demo n/a]') 
     print('\n')
-#def plot_combined(ringsystem_params, lightcurve_params, savename='test.png', 
-#                  figsize=(12, 10)):
+    ### PLOT_COMBINED() ###
+    print('8. simulate_lightcurve.plot_combined()')
+    print('--------------------------------------')
+    # initialise parameters
+    print('  a. initialising parameters:')
+    print('     plot_ringsystem parameters')
+    print('     plot_lightcurve parameters')
+    rsp_args = (planet_radius, inner_radii, outer_radii, opacities,
+                inclination, tilt, impact_parameter, dt)
+    ringsystem_patches = get_ringsystem_patches(*rsp_args)
+    rs_xlim = (-120, 120)
+    rs_ylim = (-100, 100)
+    ringsystem_params = (ringsystem_patches, rs_xlim, rs_ylim)
+    lightcurve_params = (time, lightcurve, lightcurve_components, slope_lines,
+                         True)
+    # list dependencies
+    print('  b. demo via:')
+    print('     helper: get_ringsystem_patches()')
+    print('       - helper: get_ring_patch()')
+    # prepare demo
+    print('  c. running simulate_lightcurve.plot_combined() demo')
+    plot_combined(ringsystem_params, lightcurve_params)
+    print('     figure saved to \'./test.png\'')
+    print('\n')
+    print('==========================================================')
+    print('ALL THE METHODS IN SIMULATE_LIGHTCURVE.PY HAVE BEEN DEMOED')
+    print('==========================================================')
+    print('')
