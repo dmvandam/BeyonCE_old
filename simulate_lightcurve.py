@@ -652,7 +652,8 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[],
     # plot the full light curve
     ax.plot(time, lightcurve, 'k-', lw=2, label=lbl, alpha=0.5)
     # add legend
-    ax.legend(bbox_to_anchor=[1.0, 0.0], loc='lower left')
+    if components == True:
+        ax.legend(bbox_to_anchor=[1.0, 0.0], loc='lower left')
     # set x/y labels and limits
     ax.set_xlabel('Date [days]')
     ax.set_ylabel('Normalised Flux [-]')
@@ -693,8 +694,8 @@ def plot_ringsystem(ringsystem_patches, xlim=None, ylim=None, ax=None):
     for component in ringsystem_patches:
         ax.add_patch(component)
     # set x/y labels and limits
-    ax.set_xlabel('x [days]')
-    ax.set_ylabel('y [days]')
+    ax.set_xlabel('x [R*]')
+    ax.set_ylabel('y [R*]')
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
     return ax
