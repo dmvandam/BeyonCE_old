@@ -353,25 +353,6 @@ def calculate_slopes(time, lightcurve, slope_bounds_list):
         slopes[k] = slope
     return slope_times, slopes
 
-def slope_to_gradient(slopes):
-    '''
-    This function converts a light curve slope to a normalised projected
-    gradient, using the transformation gradient = np.abs(np.sin(slope)).
-    This converts the slope to a gradient that runs from 0 to 1.
-
-    Parameters
-    ----------
-    slopes : array_like (1-D)
-        slopes measured in the light curve [L*/day]
-    
-    Returns
-    -------
-    gradients : array_like (1-D)
-        gradients measured in the light curve [-]
-    '''
-    gradients = np.abs(np.sin(slopes))
-    return gradients
-
 def get_min_velocity(slopes, limb_darkening):
     '''
     This function determines the minimum transverse velocity of the occulting
@@ -428,7 +409,7 @@ def get_min_disk_radius(min_velocity, eclipse_duration):
 ############################### PLOT FUNCTIONS ###############################
 ##############################################################################
 
-def get_slope_line(time, lightcurve, slope_times, slopes, length=0.1):
+def get_slope_lines(time, lightcurve, slope_times, slopes, length=0.1):
     '''
     This function produces the (x, y) coordinates of a line that represents
     each slope in the light curve at the correct position on the plot
@@ -652,9 +633,10 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[],
     # plot the full light curve
     ax.plot(time, lightcurve, 'k-', lw=2, label=lbl, alpha=0.5)
     # add legend
-    ax.legend(bbox_to_anchor=[1.0, 0.0], loc='lower left')
+    if components == True:
+        ax.legend(bbox_to_anchor=[1.0, 0.0], loc='lower left')
     # set x/y labels and limits
-    ax.set_xlabel('Date [days]')
+    ax.set_xlabel('Time [days]')
     ax.set_ylabel('Normalised Flux [-]')
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
@@ -693,14 +675,14 @@ def plot_ringsystem(ringsystem_patches, xlim=None, ylim=None, ax=None):
     for component in ringsystem_patches:
         ax.add_patch(component)
     # set x/y labels and limits
-    ax.set_xlabel('x [days]')
-    ax.set_ylabel('y [days]')
+    ax.set_xlabel('x [R*]')
+    ax.set_ylabel('y [R*]')
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
     return ax
 
 def plot_combined(ringsystem_params, lightcurve_params, savename='test.png', 
-                  figsize=(12, 10)):
+                  figsize=(12, 10), title=''):
     '''
     This function creates a figure with two subplots, the ringsystem cartoon
     on the top and the lightcurve on the bottom.
@@ -720,6 +702,8 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
         name of the file to be saved [default = 'test.png']
     figsize : tuple
         size of the plot [default = (12, 10)]
+    title : str
+        title of the figure [default = '']
     
     Returns
     -------
@@ -731,6 +715,7 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
     NOT be specified.
     '''
     fig = plt.figure(figsize=figsize)
+    fig.suptitle(title)
     ax0 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
     ax1 = plt.subplot2grid((3, 1), (2, 0))
     ax0 = plot_ringsystem(*ringsystem_params, ax=ax0)
@@ -738,3 +723,258 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
     fig.savefig(savename)
     fig.show()
     return None
+
+
+##############################################################################
+################################# MODULE DEMO ################################
+##############################################################################
+
+if __name__ == "__main__":
+    # import extra modules for demo
+    from matplotlib.patches import Rectangle
+    # start demos
+    print('========================================================')
+    print('ALL THE METHODS IN SIMULATE_LIGHTCURVE.PY WILL BE DEMOED')
+    print('========================================================')
+    print('')
+    ### SIMULATE_LIGHTCURVE() ###
+    print('1. simulate_lightcurve.simulate_lightcurve()')
+    print('--------------------------------------------')
+    print('This function simulates the light curve of a transiting ring')
+    print('system and each of the ring system\'s components.')
+    # initialise parameters
+    print('  a. initialising input parameters:')
+    time = np.linspace(-85, 85, 301)
+    time_pars = (time[0], time[-1], len(time))
+    planet_radius = 0.3
+    ring_edges = np.linspace(0, 130, 6)
+    inner_radii = ring_edges[:-1]
+    inner_radii[0] = 1e-16
+    outer_radii = ring_edges[1:]
+    opacities = np.random.uniform(0, 1, 5)
+    inclination = 76
+    tilt = 37
+    impact_parameter = 12
+    dt = 5
+    limb_darkening = 0.4
+    transverse_velocity = 1
+    print('     time: from %.2f to %.2f day in %i equal steps' % time_pars)
+    print('     planet_radius: %.2f [R*]' % planet_radius)
+    print('     inner_radii: ', inner_radii, ' [R*]')
+    print('     outer_radii: ', outer_radii, ' [R*]')
+    print('     opacities: ', opacities, ' [-]')
+    print('     inclination: %.2f [deg]' % inclination)
+    print('     tilt: %.2f [deg]' % tilt)
+    print('     impact_parameter: %.2f [R*]' % impact_parameter)
+    print('     dt: %.2f [day]' % dt)
+    print('     limb_darkening: %.2f' % limb_darkening)
+    print('     transverse_velocity: %.2f [R*/day]' % transverse_velocity)
+    # list dependencies
+    print('  b. demo via:')
+    print('      simulate_lightcurve.plot_lightcurve()')
+    print('       - slope_lines demoed later')
+    # prepare demo
+    print('  c. running simulate_lightcurve.simulate_lightcurve() demo')
+    sim_args = (time, planet_radius, inner_radii, outer_radii, opacities, 
+                inclination, tilt, impact_parameter, dt, limb_darkening,
+                transverse_velocity)
+    lightcurve, lightcurve_components = simulate_lightcurve(*sim_args)
+    fig, ax = plt.subplots(figsize=(12,6))
+    fig.suptitle('Demo: simulate_lightcurve.simulate_lightcurve()')
+    ax = plot_lightcurve(time, lightcurve, lightcurve_components)
+    plt.show()
+    print('\n')
+    ### GENERATE RANDOM RINGSYSTEM() ###
+    print('2. simulate_lightcurve.generate_random_ringsystem()')
+    print('---------------------------------------------------')
+    print('This function breaks up a circumplanetary disk into a ring system')
+    print('by separating the disk into random connected rings with random')
+    print('opacities.')
+    # intialise input parameters
+    print('  a. initialising input parameters:')
+    disk_radius = outer_radii[-1]
+    ring_num_min = 3
+    ring_num_max = 12
+    tau_min = 0.0
+    tau_max = 1.0
+    print_rings = False
+    gen_args = (disk_radius, ring_num_min, ring_num_max, tau_min, tau_max, 
+                print_rings)
+    print('     disk_radius: %.2f [R*]' % disk_radius)
+    print('     ring_num_min: %i' % ring_num_min)
+    print('     ring_num_max: %i' % ring_num_max)
+    print('     tau_min: %.2f [-]' % tau_min)
+    print('     tau_min: %.2f [-]' % tau_max)
+    print('     print_rings: %r' % print_rings)
+    # list dependencies
+    print('  b. demo via:')
+    print('     simulate_lightcurve.plot_ringsystem()')
+    print('       - helper: simulate_lightcurve.get_ringsystem_patches()')
+    print('         - helper: simulate_lightcurve.get_ring_patch()')
+    # prepare demo
+    print('  c. running simulate_lightcurve.generate_random_ringsystem() demo')
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('Demo simulate_lightcurve.generate_random_ringsystem()')
+    rs_xlim = (-120, 120)
+    rs_ylim = (-100, 100)
+    for i in range(2):
+        for j in range(2):
+            ax = axes[i,j]
+            rin, rout, tau = generate_random_ringsystem(*gen_args)
+            rsp_args = (planet_radius, rin, rout, tau, inclination, tilt,
+                        impact_parameter, dt)
+            rs_patches = get_ringsystem_patches(*rsp_args)
+            ax = plot_ringsystem(rs_patches, rs_xlim, rs_ylim, ax)
+    plt.show()
+    print('\n')
+    ### ADD_NOISE() ###
+    print('3. simulate_lightcurve.add_noise()')
+    print('----------------------------------')
+    print('This function adds noise to a light curve given a certain noise')
+    print('distribution.')
+    # intialise input parameters
+    print('  a. intialising input parameters:')
+    noise_func = np.random.normal
+    mean = np.zeros(4)
+    std = np.array([0.00, 0.02, 0.05, 0.10])
+    seed = np.random.randint(0, 100000, 1)
+    print('     noise_func: np.random.normal')
+    print('     noise_args:')
+    print('        mean = 0, std = %.2f' % std[0])
+    print('        mean = 0, std = %.2f' % std[1])
+    print('        mean = 0, std = %.2f' % std[2])
+    print('        mean = 0, std = %.2f' % std[3])
+    print('     seed: %i (can be None)' % seed)
+    # list dependencies
+    print('  b. demo via:')
+    print('     simulate_lightcurve.plot_lightcurve()')
+    print('       - slope_lines demoed later')
+    # prepare demo
+    print('  c. running simulate_lightcurve.add_noise() demo')
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('Demo simulate_lightcurve.add_noise()')
+    for i in range(2):
+        for j in range(2):
+            noise_ind = 2 * i + j
+            noise_args = (mean[noise_ind], std[noise_ind])
+            noisy_lightcurve = add_noise(lightcurve, noise_func, noise_args, 
+                                         seed)
+            ax = axes[i, j]
+            ax = plot_lightcurve(time, noisy_lightcurve, lightcurve, 
+                                 components=False, ax=ax)
+            ax.set_title('noise = %.2f' % std[noise_ind])
+    plt.show()
+    print('\n')
+    ### REMOVE_DATA() ###
+    print('4. simulate_lightcurve.remove_data()')
+    print('------------------------------------')
+    print('This function removes data from an eclipse in two fashions, either')
+    print('by supplying an integer (in which case that many random points will')
+    print('be removed) or an index array (removing those particular data')
+    print('points.')
+    # intialise input parameters
+    print('  a. initialising input parameters:')
+    remove_int = 200 
+    remove_array = np.array([15, 16, 17, 18, 19, 20, 67, 68, 69, 70, 71, 72,
+                             73, 74, 75, 76, 77, 78, 79, 80, 100, 101, 102,
+                             103, 104, 230, 231, 232])
+    remove = [remove_int, remove_array]
+    remove_lbl = ['type(remove) = int', 'type(remove) = list/array']
+    print('     remove (int) = %i' % remove_int)
+    print('     remove (array) = ', remove_array)
+    # list dependencies
+    print('  b. demo via:')
+    print('     simulate_lightcurve.plot_lightcurve()')
+    print('       - slope_lines demoed later')
+    # prepare demo
+    print('  c. running simulate_lightcurve.remove_data() demo')
+    fig, axes = plt.subplots(2, 1, figsize= (12, 10))
+    fig.suptitle('Demo: simulate_lightcurve.remove_data()')
+    for i in range(2):
+        itime, ilightcurve = remove_data(time, lightcurve, remove[i])
+        axes[i] = plot_lightcurve(time, lightcurve, None, components=False, 
+                                  ax=axes[i])
+        axes[i].plot(time, lightcurve, 'ko', label='original lightcurve')
+        axes[i].plot(itime, ilightcurve, 'go', label='data after removal')
+        axes[i].legend()
+        axes[i].set_title(remove_lbl[i])
+    plt.show()
+    print('\n')
+    ### CALCULATE_SLOPES ###
+    print('5. simulate_lightcurve.calculate_slopes()')
+    print('-----------------------------------------')
+    print('This function is used to calculate slopes in the light curve that')
+    print('can be used for further processing (determining the minimum')
+    print('transverse velocity of the ringsystem and to carve out the sjalot')
+    print('explorer [separate BeyonCE module].')
+    # initialise input parameters
+    print('  a. initialising input parameters:')
+    slope_bounds_list = [(-42, -39.5), (-32, -28.8), (25.5, 28.5), (46, 49.5)]
+    print('     slope_bounds_list:')
+    for sb in slope_bounds_list:
+        print('        slope_bound = (%.2f, %.2f)' % sb)
+    # list dependencies
+    print('  b. demo via:')
+    print('     helper: simulate_lightcurve.calculate_slope()')
+    print('     simulate_lightcurve.plot_lightcurve()')
+    print('       - helper: simulate_lightcurve.get_slope_line()')
+    # prepare demo
+    print('  c. running simulate_lightcurve.calculate_slopes() demo')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    fig.suptitle('Demo: simulate_lightcurve.calculate_slopes()')
+    slope_times, slopes = calculate_slopes(time, lightcurve, slope_bounds_list)
+    slope_lines = get_slope_lines(time, lightcurve, slope_times, slopes)
+    ax = plot_lightcurve(time, lightcurve, None, slope_lines=slope_lines, 
+                         ax=ax, components=False)
+    for slope_bounds in slope_bounds_list:
+        tl, tu = slope_bounds
+        bounds = Rectangle((tl, 0), tu-tl, 2, color='g', alpha=0.2)
+        ax.add_patch(bounds)
+    ax.plot(time, lightcurve, 'kx')
+    plt.show()
+    print('\n')
+    ### GET_MIN_VELOCITY() ###
+    print('6. simulate_lightcurve.get_min_velocity()')
+    print('-----------------------------------------')
+    print('This function follows equation 12 from Van Werkhoven et al. 2014')
+    print('(https://academic.oup.com/mnras/article/441/4/2845/1206172).')
+    print('The inputs are the measured slopes in the lightcurve, which can be')
+    print('measured using simulate_lightcurve.calculate_slopes() and the')
+    print('linear limb-darkening parameter of the star. [Demo n/a]')
+    print('\n')
+    ### GET_MIN_DISK_RADIUS() ###
+    print('7. simulate_lightcurve.get_min_disk_radius()')
+    print('--------------------------------------------')
+    print('This function takes the minimum velocity of the disk provided by')
+    print('simulate_lightcurve.get_min_velocity() and the duration of the')
+    print('eclipse to determine the minimum disk radius of the transiting')
+    print('ring system. [Demo n/a]') 
+    print('\n')
+    ### PLOT_COMBINED() ###
+    print('8. simulate_lightcurve.plot_combined()')
+    print('--------------------------------------')
+    # initialise parameters
+    print('  a. initialising parameters:')
+    print('     plot_ringsystem parameters')
+    print('     plot_lightcurve parameters')
+    rsp_args = (planet_radius, inner_radii, outer_radii, opacities,
+                inclination, tilt, impact_parameter, dt)
+    ringsystem_patches = get_ringsystem_patches(*rsp_args)
+    rs_xlim = (-120, 120)
+    rs_ylim = (-100, 100)
+    ringsystem_params = (ringsystem_patches, rs_xlim, rs_ylim)
+    lightcurve_params = (time, lightcurve, lightcurve_components, slope_lines,
+                         True)
+    # list dependencies
+    print('  b. demo via:')
+    print('     helper: get_ringsystem_patches()')
+    print('       - helper: get_ring_patch()')
+    # prepare demo
+    print('  c. running simulate_lightcurve.plot_combined() demo')
+    plot_combined(ringsystem_params, lightcurve_params)
+    print('     figure saved to \'./test.png\'')
+    print('\n')
+    print('==========================================================')
+    print('ALL THE METHODS IN SIMULATE_LIGHTCURVE.PY HAVE BEEN DEMOED')
+    print('==========================================================')
+    print('')
