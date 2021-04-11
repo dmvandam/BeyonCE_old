@@ -770,19 +770,16 @@ if __name__ == "__main__":
     transverse_velocity = 1
     print('     time: from %.2f to %.2f day in %i equal steps' % time_pars)
     print('     planet_radius: %.2f [R*]' % planet_radius)
-    print('     inner_radii [R*]:')
-    print(inner_radii)
-    print('     outer_radii [R*]:')
-    print(outer_radii)
-    print('     opacities [-]:')
-    print(opacities)
+    print('     inner_radii: ', inner_radii, ' [R*]')
+    print('     outer_radii: ', outer_radii, ' [R*]')
+    print('     opacities: ', opacities, ' [-]')
     print('     inclination: %.2f [deg]' % inclination)
     print('     tilt: %.2f [deg]' % tilt)
     print('     impact_parameter: %.2f [R*]' % impact_parameter)
     print('     dt: %.2f [day]' % dt)
     print('     limb_darkening: %.2f' % limb_darkening)
     print('     transverse_velocity: %.2f [R*/day]' % transverse_velocity)
-    # listing dependencies
+    # list dependencies
     print('  b. demo via:')
     print('      simulate_lightcurve.plot_lightcurve()')
     print('       - slope_lines demoed later')
@@ -816,7 +813,7 @@ if __name__ == "__main__":
     print('     tau_min: %.2f [-]' % tau_min)
     print('     tau_min: %.2f [-]' % tau_max)
     print('     print_rings: %r' % print_rings)
-    # listing dependencies
+    # list dependencies
     print('  b. demo via:')
     print('     simulate_lightcurve.plot_ringsystem()')
     print('       - helper: simulate_lightcurve.get_ringsystem_patches()')
@@ -872,7 +869,35 @@ if __name__ == "__main__":
                                  components=False, ax=ax)
             ax.set_title('noise = %.2f' % std[noise_ind])
     plt.show()
-    
+    print('\n')
+    ### REMOVE_DATA() ###
+    print('4. simulate_lightcurve.add_noise()')
+    print('----------------------------------')
+    # intialise input parameters
+    print('  a. initialising input parameters:')
+    remove_int = 65
+    remove_array = np.array([15, 16, 17, 18, 19, 20, 67, 68, 69, 70, 71, 72,
+                             73, 74, 75, 76, 77, 78, 79, 80, 100, 101, 102,
+                             103, 104, 230, 231, 232])
+    remove = [remove_int, remove_array]
+    remove_lbl = ['type(remove) = int', 'type(remove) = list/array']
+    print('     remove (int) = %i' % remove_int)
+    print('     remove (array) = ', remove_array)
+    # list dependencies
+    print('  b. demo via:')
+    print('     simulate_lightcurve.plot_lightcurve()')
+    print('       - slope_lines demoed later')
+    # prepare demo
+    print('  c. running simulate_lightcurve.remove_data() demo')
+    fig, axes = plt.subplots(2, 1, figsize= (12, 10))
+    fig.suptitle('Demo: simulate_lightcurve.remove_data()')
+    for i in range(2):
+        itime, ilightcurve = remove_data(time, lightcurve, remove[i])
+        axes[i] = plot_lightcurve(itime, ilightcurve, lightcurve_components,
+                                components=False, ax=axes[i])
+        axes[i].set_title(remove_lbl[i])
+    plt.show()
+
 #def remove_data(time, lightcurve, remove=None):
 #def calculate_slope(time, lightcurve, slope_bounds):
 #def slope_to_gradient(slopes):
