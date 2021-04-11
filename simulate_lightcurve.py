@@ -428,7 +428,7 @@ def get_min_disk_radius(min_velocity, eclipse_duration):
 ############################### PLOT FUNCTIONS ###############################
 ##############################################################################
 
-def get_slope_line(time, lightcurve, slope_times, slopes, length=0.1):
+def get_slope_lines(time, lightcurve, slope_times, slopes, length=0.1):
     '''
     This function produces the (x, y) coordinates of a line that represents
     each slope in the light curve at the correct position on the plot
@@ -656,7 +656,7 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[],
     if components == True:
         ax.legend(bbox_to_anchor=[1.0, 0.0], loc='lower left')
     # set x/y labels and limits
-    ax.set_xlabel('Date [days]')
+    ax.set_xlabel('Time [days]')
     ax.set_ylabel('Normalised Flux [-]')
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
@@ -747,6 +747,9 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
 ##############################################################################
 
 if __name__ == "__main__":
+    # import extra modules for demo
+    from matplotlib.patches import Rectangle
+    # start demos
     print('all the methods in simulate_lightcurve.py will be demoed here')
     print('=============================================================')
     print('')
@@ -851,7 +854,7 @@ if __name__ == "__main__":
     print('        mean = 0, std = %.2f' % std[2])
     print('        mean = 0, std = %.2f' % std[3])
     print('     seed: %i (can be None)' % seed)
-    # listing dependencies
+    # list dependencies
     print('  b. demo via:')
     print('     simulate_lightcurve.plot_lightcurve()')
     print('       - slope_lines demoed later')
@@ -901,8 +904,36 @@ if __name__ == "__main__":
         axes[i].legend()
         axes[i].set_title(remove_lbl[i])
     plt.show()
+    print('\n')
+    ### CALCULATE_SLOPES ###
+    print('5. simulate_lightcurve.calculate_slopes()')
+    print('-----------------------------------------')
+    # initialise input parameters
+    print('  a. initialising input parameters:')
+    slope_bounds_list = [(-42, -39.5), (-32, -28.8), (25.5, 28.5), (46, 49.5)]
+    print('     slope_bounds_list:')
+    for sb in slope_bounds_list:
+        print('        slope_bound = (%.2f, %.2f)' % sb)
+    # list dependencies
+    print('  b. demo via:')
+    print('     helper: simulate_lightcurve.calculate_slope()')
+    print('     simulate_lightcurve.plot_lightcurve()')
+    print('       - helper: simulate_lightcurve.get_slope_line()')
+    # prepare demo
+    print('  c. running simulate_lightcurve.calculate_slopes() demo')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    fig.suptitle('Demo: simulate_lightcurve.calculate_slopes()')
+    slope_times, slopes = calculate_slopes(time, lightcurve, slope_bounds_list)
+    slope_lines = get_slope_lines(time, lightcurve, slope_times, slopes)
+    ax = plot_lightcurve(time, lightcurve, None, slope_lines=slope_lines, 
+                         ax=ax, components=False)
+    for slope_bounds in slope_bounds_list:
+        tl, tu = slope_bounds
+        bounds = Rectangle((tl, 0), tu-tl, 2, color='g', alpha=0.2)
+        ax.add_patch(bounds)
+    ax.plot(time, lightcurve, 'kx')
+    plt.show()
 
-#def calculate_slope(time, lightcurve, slope_bounds):
 #def slope_to_gradient(slopes):
 #def get_min_velocity(slopes, limb_darkening):
 #def get_min_disk_radius(min_velocity, eclipse_duration):
