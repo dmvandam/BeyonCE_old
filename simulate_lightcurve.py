@@ -576,7 +576,7 @@ def get_ringsystem_patches(planet_radius, inner_radii, outer_radii, opacities,
         ringsystem_patches.append(ring)
     return ringsystem_patches
 
-def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[], 
+def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=None, 
                     components=True, xlim=None, ylim=None, ax=None):
     '''
     This function plots the light curve for the provided ringsystem and can
@@ -613,8 +613,11 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=[],
     ax : matplotlib.axes()
         contains the axes with the light curve plot
     '''
-    # define axes
-    if ax == None:
+    # check slope_lines
+    if isinstance(slope_lines, type(None)):
+	    slope_lines = []
+    # check axes
+    if isinstance(ax, type(None)):
         ax = plt.gca()
     # plot components if requested
     if components == True:
