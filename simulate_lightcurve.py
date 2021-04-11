@@ -267,7 +267,7 @@ def remove_data(time, lightcurve, remove=None):
         time data for the light curve [day]
     lightcurve : array_like (1-D)
         normalised flux data for the light curve [L*]
-    remove : int or array of int
+    remove : int or array_like (1-D) of int
         contains either the number of points to removed (chosen at random)
         or an index array for which points to remove
 

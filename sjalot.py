@@ -1,18 +1,78 @@
-"""
-This module is used to find find possible solutions to a light curve based on
-a couple of inputs, namely the width of the eclipse (te), a grid of occulter 
-centres (dx, dy), initial stretch factor of the occulter (fy), and an input 
-list containing a time/location w.r.t. eclipse and the corresponding measured
-gradient (G) in the form G = np.abs(np.sin(np.arctan2(slope, 1)))
+'''
+This module is used to explore the vast parameter space that circumplanetary
+ring system transits cover. Circumplanetary ring systems transit light curves
+span the following parameters:
 
-We want the grid shape to be (len(dy), len(dx))
-"""
+    1. Disk Shape
+        a. Ring Radii
+        b. Ring Width
+        c. Ring Opacity
+    2. Disk Orientation
+        a. Inclination
+        b. Tilt
+    3. Transit Properties
+        a. Impact Parameter
+        b. Time of Closest Approach
+        c. Transverse Velocity
+    4. Stellar Properties
+        a. Limb-Darkening of the Stellar Disk
+    5. Many Other Effects (not considered here)
 
+We need to explore this large parameter space of interconnected properties as
+efficiently as possible, and we need to restrict it using the information
+encoded in the light curve, specifically:
+
+    i.      The eclipse duration
+    ii.     The gradients in the light curve
+    iii.    Hill Sphere Stability Considerations
+
+This module explores the space for large circumplanetary disks where the size
+of the star w.r.t. the disk is negligible. It does this by creating a 2D grid
+of circumplanetary disk centres, in other words (dx, dy), w.r.t. the centre of
+the eclipse in time-space and then solving analytically for the family of
+ellipses that intersect with the boundaries of the eclipse in time-space. Put
+in other words, the width of the ellipse at dy = 0 is equal to the duration of
+the eclipse.
+
+This provides a method to represent this convoluted parameter space. Setting up
+this grid allows us to make cuts to the parameter space based on two separate
+fronts. The first is to limit the radius of the disk such that the disk would
+be dynamically stable. This is akin to ensuring that the radius of the disk is
+less than 30% of the Hill radius. The second is to convert the measured light
+curve slopes to projected gradients, as in Kenworthy & Mamajek 2015, and ensure
+that the measured gradients are always less than the theoretical gradients.
+(https://iopscience.iop.org/article/10.1088/0004-637X/800/2/126 - for details).
+    
+    i.      disk_radius < 0.3 * Hill_radius
+    ii.     measured_gradients < theoretical_gradients
+
+By doing this we effectively reduce the available grid points in the parameter
+space, enabling the further modeling of the light curve.
+
+Finally if the module is run as a script (instead of imported from elsewhere)
+a tutorial of each of the functions will be given (i.e. a description will be
+printed along with relevant plots to show the working of the functions in this
+module).
+
+-----
+The module gets its name from the equal-radius surfaces in the parameter grid
+plots, which are shaped like sjalots or onions.
+'''
+
+
+###############################################################################
+############################ IMPORT MAIN MODULES ##############################
+###############################################################################
+
+# calculations
 import numpy as np
+# timing / progress
 from tqdm import tqdm
 from time import time as time_now
+# really necessary?
 from scipy.optimize import curve_fit
 from simulate_lightcurve import simulate_lightcurve, divide_rings
+
 
 ###############################################################################
 ############################## ARRAY EQUATIONS ################################
@@ -21,24 +81,24 @@ from simulate_lightcurve import simulate_lightcurve, divide_rings
 def determine_fx(te, dy, fy):
     '''
     This function is used to determine the proportionality factor in x given a
-    proportionality factor in y. The idea is that when you find the smallest
-    circle centred at (0, dy) that passes through the eclipse points ±(te/2, 0)
-    and we then either stretch or compress the ellipse in the y direction with 
-    fy, we are then forced to compensate by a compression or stretching of the
-    ellipse in the x direction (fx)
+    proportionality factor in y. After determining the smallest circle centred
+    at (0, dy) that passes through the eclipse points +-(te/2, 0), and this 
+    circle is then either stretched or compressed in the y direction  with fy,
+    this transformation in the y direction must be compensated by a respective
+    compression or stretching of the new ellipse in the x direction (fx).
 
     Parameters
     ----------
     te : float
-        width of the eclipse [time or space]
-    dy : array (1-D)
-        contains the y coordinate of ellipse centres
-    fy : array (2-D)
+        duration of the eclipse [day]
+    dy : array_like (1-D)
+        contains the y coordinate of ellipse centres [day]
+    fy : array_like (2-D)
         contains the original y proportionality factor for the ellipse
 
     Returns
     -------
-    fx : array (2-D)
+    fx : array_like (2-D)
         contains the original x proportionality factor for the ellipse
     '''
     # we find fx for fy != 0
@@ -54,11 +114,11 @@ def determine_fx(te, dy, fy):
 
 def shear_ellipse_point(Rmin, s, fx, fy, theta):
     '''
-    Finds the x and y coordinate for a sheared ellipse based on the angle in
-    parameteric form.
+    This function finds the x and y coordinate for a sheared ellipse based on 
+    the angle provided from the parametric equation of the ellipse.
     
     First we find the smallest circle, centred at (0, dy) that passes through
-    the eclipse points ±(te/2, 0), then we transform it to an ellipse by using
+    the eclipse points +-(te/2, 0), then we transform it to an ellipse by using
     the proportionality factors fy and the determined fx. Finally we shear the
     ellipse to its final form.
     
@@ -67,28 +127,30 @@ def shear_ellipse_point(Rmin, s, fx, fy, theta):
 
     Parameters
     ----------
-    te : float
-        width of the eclipse [time or space]
-    dx : array (1-D)
-        contains the x coordinate of ellipse centres
-    dy : array (1-D)
-        contains the y coordinate of ellipse centres
-    fy : array (2-D)
+    Rmin : array_like (1-D)
+        contains the minimum radius of a circle centred at (0, dy) and passing
+        through +-(te/2, 0) [day]
+    s : array_like (2-D)
+        contains the shear factor based on the location of the grid point
+        -dx / dy
+    fx : array_like (2-D)
+        contains the original x proportionality factor for the ellipse
+    fy : array_like (2-D)
         contains the original y proportionality factor for the ellipse
     theta : float
         the angle of the point in the circle that will be transformed
-        to the sheared circle [rad].
+        to the sheared circle [rad]
 
     Returns
     -------
     xp : array_like (2-D)
-        the x-coordinate of the input point in the sheared circle.
+        the x-coordinate of the input point in the sheared circle [day]
     yp : array_like (2-D)
-        the y-coordinate of the input point in the sheared circle.
+        the y-coordinate of the input point in the sheared circle [day]
     '''
     # determine the x and y coordinates of the ellipse
-    y = fy * Rmin[:,None]*np.sin(theta)
-    x = fx * Rmin[:,None]*np.cos(theta)
+    y = fy * Rmin[:, None] * np.sin(theta)
+    x = fx * Rmin[:, None] * np.cos(theta)
     # shear the circle
     yp = y
     xp = x - s * yp
@@ -102,20 +164,19 @@ def theta_max_min(s, fx, fy):
 
     Parameters
     ----------
-    te : float
-        width of the eclipse [time or space]
-    dx : array (1-D)
-        contains the x coordinate of ellipse centres
-    dy : array (1-D)
-        contains the y coordinate of ellipse centres
-    fy : array (2-D)
+    s : array_like (2-D)
+        contains the shear factor based on the location of the grid point
+        -dx / dy
+    fx : array_like (2-D)
+        contains the original x proportionality factor for the ellipse
+    fy : array_like (2-D)
         contains the original y proportionality factor for the ellipse
 
     Returns
     -------
-    theta_max_min : array_like (2-D) [rad]
+    theta_max_min : array_like (2-D) 
         Array containing the angle of either the semi-major or semi-
-        minor axis of an ellipse.
+        minor axis of an ellipse [rad]
     '''
     # determine the parametric angle of either the semi-major or minor axis
     top = 2 * fy * fx * s
@@ -125,27 +186,30 @@ def theta_max_min(s, fx, fy):
 
 def ellipse_parameters(Rmin, s, fx, fy):
     '''
-    Finds the semi-major axis, a, semi-minor axis, b, the tilt and 
-    the inclination of the smallest ellipse that is centred at 
-    (dx, dy) w.r.t. the centre of the eclipse with duration te.
+    This function finds the semi-major axis, a, semi-minor axis, b, the tilt 
+    and the inclination of the smallest ellipse that is centred at (dx, dy) 
+    w.r.t. the centre of the eclipse with duration te and stretch factors fx 
+    and fy.
 
     Parameters
     ----------
-    te : float
-        width of the eclipse [time or space]
-    dx : array (1-D)
-        contains the x coordinate of ellipse centres
-    dy : array (1-D)
-        contains the y coordinate of ellipse centres
-    fy : array (2-D)
+    Rmin : array_like (1-D)
+        contains the minimum radius of a circle centred at (0, dy) and passing
+        through +-(te/2, 0) [day]
+    s : array_like (2-D)
+        contains the shear factor based on the location of the grid point
+        -dx / dy
+    fx : array_like (2-D)
+        contains the original x proportionality factor for the ellipse
+    fy : array_like (2-D)
         contains the original y proportionality factor for the ellipse
 
     Returns
     -------
-    a : array_like (2-D)
-        semi-major axes of the ellipses investigated
+    a : array_like (2-D) 
+        semi-major axes of the ellipses investigated [day]
     b : array_like (2-D)
-        semi-minor axes of the ellipses investigated
+        semi-minor axes of the ellipses investigated [day]
     tilt : array_like (2-D)
         tilt angles of the ellipses investigated. This is the angle of the 
         semi-major axis w.r.t. the x-axis. [deg]
@@ -173,27 +237,28 @@ def ellipse_parameters(Rmin, s, fx, fy):
 
 def ellipse_slope(x, dx, dy, s, fx, fy):
     '''
-    Finds the slopes of the tangents to the ellipse defined by te, dx, dy, fy.
-    This ellipse is determined by te, so we get slopes at ±(te/2, 0). To
-    determine the slope at (x, 0), where x is between ±te/2 we need to find the
-    slope of the tangent for a concentric ellipse that passes through ±(x, 0)
+    This function finds the slopes of the tangents to the ellipse defined by 
+    te, dx, dy, fy. This particular ellipse is determined by te, so we get 
+    slopes at +-(te/2, 0). To determine the slope at (x, 0), where x is between
+    +-te/2 we need to find the slope of the tangent for a concentric ellipse 
+    that passes through +-(x, 0)
 
     Parameters
     ----------
     x : float
-        value at which to determine the slope
+        time value at which to determine the slope [day]
     te : float
-        width of the eclipse [time or space]
-    dx : array (1-D)
-        contains the x coordinate of ellipse centres
-    dy : array (1-D)
-        contains the y coordinate of ellipse centres
-    fy : array (2-D)
+        duration of the eclipse [day]
+    dx : array_like (1-D)
+        contains the x coordinate of ellipse centres [day]
+    dy : array_like (1-D)
+        contains the y coordinate of ellipse centres [day]
+    fy : array_like (2-D)
         contains the original y proportionality factor for the ellipse
     
     Returns
     -------
-    slope : array (2-D)
+    slope : array_like (2-D)
         slopes of the ellipses investigated at (x, 0)
     '''
     # shift coordinates to frame centred on the ellipse centre
@@ -208,22 +273,22 @@ def ellipse_slope(x, dx, dy, s, fx, fy):
 def slope_to_gradient(slope):
     '''
     This function converts a physical slope to a projected angular gradient.
-    This is done as follows - gradient = np.abs(np.sin(np.arctan2(slope, 1)))
+    This is done as follows -> gradient = np.abs(np.sin(np.arctan2(slope, 1)))
 
     Parameters
     ----------
-    slope : array (2-D)
+    slope : array_like (2-D)
         slopes of the ellipses investigated at (x, 0)
 
     Returns
     -------
-    gradient : array (2-D)
+    gradient : array_like (2-D)
         gradients of the ellipses investigated at (x, 0)
     '''
     gradient = np.abs(np.sin(np.arctan2(slope, 1)))
     return gradient
 
-def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
+def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
     '''
     Investigates the full parameter space for an eclipse of duration te with
     centres at [-xmax, xmax] (2*nx), [-ymax, ymax] (2*ny)
@@ -231,25 +296,28 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
     Parameters
     ----------
     te : float
-        width of the eclipse [time or space]
+        duration of the eclipse [day]
     xmax : float
-        contains the maximum value of dx
+        contains the maximum value of dx [day]
     ymax : float
-        contains the maximum value of dy
+        contains the maximum value of dy [day]
     fy : float
         contains the original y proportionality factor for the ellipse 
-        [default=1]
+        [default = 1]
+    measured_xs : list or array_like (1-D)
+        contains the time values where gradients have been measured in the
+        light curve [day]
     nx : int
-        number of gridpoints in the x direction
+        number of gridpoints in the x direction [default = 50]
     ny : int
-        number of gridpoints in the y direction
+        number of gridpoints in the y direction [default = 50]
 
     Returns
     -------
     a : array_like (2-D)
-        semi-major axes of the ellipses investigated
+        semi-major axes of the ellipses investigated [day]
     b : array_like (2-D)
-        semi-minor axes of the ellipses investigated
+        semi-minor axes of the ellipses investigated [day]
     tilt : array_like (2-D)
         tilt angles of the ellipses investigated. This is the angle of the 
         semi-major axis w.r.t. the x-axis. [deg]
@@ -258,7 +326,7 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
         on the ratio of semi-minor to semi-major axis. [deg]
     gradients : array_like (3-D)
         gradients of the ellipse investigated at each of the measured x values.
-        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        Note that the measured x values are w.r.t. the eclipse midpoint i.e.
         they should be between (-te/2, 0) and (te/2, 0).
     '''
     # creating grids / phase space
@@ -278,6 +346,8 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
     tilt = fill_quadrants(tilt, is_tilt=True)
     inclination = fill_quadrants(inclination)
     # determine slopes for each measured point
+    if isinstance(measured_xs, type(None)):
+        measured_xs = []
     n_measured = len(measured_xs)
     # if no measured points then gradients = None
     if n_measured == 0:
@@ -286,11 +356,11 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
     else:
         gradients = np.zeros((n_measured, 2*ny-1, 2*nx-1))
         # get full sub-parameters
-        DX = np.linspace(-xmax, xmax, 2*nx-1)
-        DY = np.linspace(-ymax, ymax, 2*ny-1)
+        DX = np.linspace(-xmax, xmax, 2 * nx - 1)
+        DY = np.linspace(-ymax, ymax, 2 * ny - 1)
         S  = -DX[None, :] / DY[:, None]
         S[np.isnan(S)] = 0
-        FY = fy *np.ones((2*ny-1, 2*nx-1))
+        FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
         FX = determine_fx(te, DY, FY)
         for k, measured_x in enumerate(measured_xs):
             slope = ellipse_slope(measured_x, DX, DY, S, FX, FY)
@@ -300,9 +370,9 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=[], nx=50, ny=50):
 def fill_quadrants(prop, is_tilt=False):
     '''
     This function does the appropriate reflection symmetry and works for the
-    semi-major axis, the semi-minor axis and the inclination. Tilt must be
-    done differently and the gradients must be calculated on the four quadrant
-    investigation
+    semi-major axis, the semi-minor axis and the inclination. To be able to
+    fill the quadrants for tilt the is_tilt parameter must be set to True.
+    Gradients can not be filled in this way
 
     Parameters
     ----------
@@ -312,7 +382,7 @@ def fill_quadrants(prop, is_tilt=False):
         tilt, then the is_tilt parameter should be equal to True, otherwise it
         should be False
     is_tilt : bool
-        this parameter should be False unless prop == tilt. This is because
+        this parameter should be False unless prop = tilt. This is because
         the tilt parameter depends on which quadrant it is in (Q2 and Q4 are
         180 - Qx) and is not just a simple reflection
 
@@ -347,14 +417,14 @@ def fill_quadrants(prop, is_tilt=False):
 def mask_parameters(a, b, tilt, inclination, gradients, mask):
     '''
     This function applies a mask to the semi-major axis, the semi-minor axis,
-    the tilt, the inclination and the gradients
+    the tilt, the inclination and the gradients.
 
     Parameters
     ----------
     a : array_like (2-D)
-        semi-major axes of the ellipses investigated
+        semi-major axes of the ellipses investigated [day]
     b : array_like (2-D)
-        semi-minor axes of the ellipses investigated
+        semi-minor axes of the ellipses investigated [day]
     tilt : array_like (2-D)
         tilt angles of the ellipses investigated. This is the angle of the 
         semi-major axis w.r.t. the x-axis. [deg]
@@ -363,7 +433,7 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
         on the ratio of semi-minor to semi-major axis. [deg]
     gradients : array_like (3-D)
         gradients of the ellipse investigated at each of the measured x values.
-        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        note that the measured x values are w.r.t. the eclipse midpoint i.e.
         they should be between (-te/2, 0) and (te/2, 0).
 
     Returns
@@ -388,6 +458,7 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
         they should be between (-te/2, 0) and (te/2, 0) with the masked
         elements converted to nan's.
     '''
+    # applying the mask to each parameter
     a[mask] = np.nan
     b[mask] = np.nan
     tilt[mask] = np.nan
@@ -406,17 +477,17 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     Parameters
     ----------
     te : float
-        width of the eclipse [time or space]
+        duration of the eclipse [day]
     xmax : float
-        contains the maximum value of dx
+        contains the maximum value of dx [day]
     ymax : float
-        contains the maximum value of dy
+        contains the maximum value of dy [day]
     dfy : float
         contains the step size in fy for the original y proportionality factor
         for the ellipse
     Rmax : float
         the maximum size of the disk (used to apply a mask and determine the
-        extent of fy)
+        extent of fy) [day]
     nx : int
         number of gridpoints in the x direction
     ny : int
@@ -428,9 +499,9 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     Return
     -------
     ac : array_like (3-D)
-        cube of semi-major axes of the ellipses investigated
+        cube of semi-major axes of the ellipses investigated [day]
     bc : array_like (3-D)
-        cube of semi-minor axes of the ellipses investigated
+        cube of semi-minor axes of the ellipses investigated [day]
     tc : array_like (3-D)
         cube of tilt angles of the ellipses investigated. This is the angle of
         the semi-major axis w.r.t. the x-axis. [deg]
@@ -464,7 +535,7 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     tc = np.zeros(template_shape)
     ic = np.zeros(template_shape)
     gc = np.zeros((nm,) + template_shape)
-    # start with fy = 1 (smallest possible disk)
+    # loop over fy
     for k, fy in tqdm(enumerate(fys)):
         # determine the ellipse parameters
         parameters = (te, xmax, ymax, fy, measured_times, nx, ny)
@@ -492,7 +563,7 @@ def extract_all_solutions(a_cube, tilt_cube, inclination_cube, xmax, ymax):
     Parameters
     ----------
     a_cube : array_like (3-D)
-        cube of semi-major axes of the ellipses investigated
+        cube of semi-major axes of the ellipses investigated [day]
     tilt_cube : array_like (3-D)
         cube of tilt angles of the ellipses investigated. This is the angle of
         the semi-major axis w.r.t. the x-axis. [deg]
@@ -500,30 +571,30 @@ def extract_all_solutions(a_cube, tilt_cube, inclination_cube, xmax, ymax):
         cube of inclination angles of the ellipses investigated. Inclination is
         based on the ratio of semi-minor to semi-major axis. [deg]
     xmax : float
-        contains the maximum value of dx
+        contains the maximum value of dx [day]
     ymax : float
-        contains the maximum value of dy
+        contains the maximum value of dy [day]
 
     Returns
     -------
     disk_radii : array_like (1-D)
-        all the possible disk radii
+        all the possible disk radii [day]
     disk_tilt : array_like (1-D)
         all the possible disk tilts [deg]
     disk_inclination : array_like (1-D)
         all the possible disk inclinations [deg]
     disk_impact_parameters : array_like (1-D)
-        all the possible disk impact parameters [R*]
+        all the possible disk impact parameters [day]
     disk_dts : array_like (1-D)
-        all the possible x-offsets of the disk centres [R*]
+        all the possible x-offsets of the disk centres [day]
     '''
     # get cube shape
     ny, nx, nf = a.shape
     # set-up dx and dy grids
     yy, xx = np.mgrid[:ny, :nx]
     # normalise grids from -1 to +1
-    yy = 2 * (yy / (ny-1) - 0.5)
-    xx = 2 * (xx / (nx-1) - 0.5)
+    yy = 2 * (yy / (ny - 1) - 0.5)
+    xx = 2 * (xx / (nx - 1) - 0.5)
     # scale to -ymax to +ymax and -xmax to +xmax
     yy = ymax * yy
     xx = xmax * xx
