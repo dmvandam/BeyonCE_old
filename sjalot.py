@@ -396,7 +396,7 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
         gradients[k][mask] = np.nan
     return a, b, tilt, inclination, gradients
 
-def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=[]):
+def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     '''
     This function investigates the full parameter space (dx, dy, fy) based
     on a grid size (nx, ny, dfy) dependent on the eclipse geometry (te) and
@@ -447,6 +447,8 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=[]):
     fys = np.arange(0, fy_max + dfy, dfy)
     nfy = len(fys)
     # extract measured times and gradients
+    if isinstance(measured, type(None)):
+        measured = []
     measured_times = []
     measured_gradients = []
     for m in measured:
