@@ -681,3 +681,71 @@ def get_closest_solution(a_cube, tilt_cube, inclination_cube, xmax, ymax, dfy,
     best_indices = np.unravel_index(np.argmax(mask), mask.shape)    
     fy = dfy * best_indices[2]
     return dx, dy, fy, best_indices
+
+
+###############################################################################
+################################# MODULE DEMO #################################
+###############################################################################
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    # start demos
+    print('===========================================')
+    print('ALL THE METHODS IN SJALOT.PY WILL BE DEMOED')
+    print('===========================================')
+    print('')
+    ### SHEAR_ELLIPSE_POINT() ###
+    print('1. sjalot.shear_ellipse_point()')
+    print('-------------------------------')
+    print('This function shears a point on a circle to its location on an')
+    print('ellipse based on stretch factors in x and y, and a shear factor')
+    te = 1
+    dy = np.array([0.7])
+    dx0 = np.array([0])
+    dx1 = np.array([0.3])
+    s0 = - dx0[None, :] / dy[:, None]
+    s1 = - dx1[None, :] / dy[:, None]
+    fy = np.array([[1]])
+    fx = determine_fx(te, dy, fy)
+    Rmin = np.hypot(te/2, dy)
+    theta = np.linspace(0, 2*np.pi, 1001)
+    xp0, yp0 = shear_ellipse_point(Rmin, s0, fx, fy, theta)
+    xp1, yp1 = shear_ellipse_point(Rmin, s1, fx, fy, theta)
+    fig = plt.figure()
+    fig.suptitle('Demo: sjalot.shear_ellipse_point() (fy = 1, fx = 1)')
+    ax0 = plt.subplot2grid((2, 3), (0, 0), rowspan=2, colspan=2)
+    ax1 = plt.subplot2grid((2, 3), (0, 2))
+    ax2 = plt.subplot2grid((2, 3), (1, 2))
+    axes = [ax0, ax1, ax2]
+    for ax in axes:
+        ax.set_aspect('equal')
+        ax.set_xlabel('x [day]')
+        ax.set_ylabel('y [day]')
+        ax.plot(xp0[0] + dx0[0], yp0[0] + dy[0], 'b-', label='smallest circle')
+        ax.plot(dx0[0], dy[0], 'bo')
+        ax.plot(xp1[0] + dx1[0], yp1[0] + dy[0], 'r-', label='sheared circle')
+        ax.plot(dx1[0], dy[0], 'ro')
+        ax.plot([-100, -te/2], [0,0], 'k-', label='eclipse bounds')
+        ax.plot([te/2, 100], [0,0], 'k-')
+        ax.plot([-te/2, te/2], [0,0], 'ko')
+    ax0.set_xlim(-2, 2)
+    ax0.set_ylim(-1, 3)
+    ax0.legend()
+    ax1.set_xlim(-te/2-0.2, -te/2+0.2)
+    ax1.set_ylim(-0.2, 0.2)
+    ax2.set_xlim(te/2-0.2, te/2+0.2)
+    ax2.set_ylim(-0.2, 0.2)
+    plt.show()
+
+#def determine_fx(te, dy, fy):
+#    return fx
+#def shear_ellipse_point(Rmin, s, fx, fy, theta):
+#    return xp, yp
+#def theta_max_min(s, fx, fy):
+#    return theta_max_min
+#def ellipse_parameters(Rmin, s, fx, fy):
+#    return a, b, np.rad2deg(tilt), np.rad2deg(inclination)
+#def ellipse_slope(x, dx, dy, s, fx, fy):
+#    return slope
+#def slope_to_gradient(slope):
+# return gradient
