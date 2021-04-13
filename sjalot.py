@@ -74,7 +74,7 @@ from tqdm import tqdm
 ############################ ELLIPSE PARAMETERS ###############################
 ###############################################################################
 
-def determine_fx(te, dy, fy):
+def determine_fx(te, dx, dy, fy):
     '''
     This function is used to determine the proportionality factor in x given a
     proportionality factor in y. After determining the smallest circle centred
@@ -87,6 +87,8 @@ def determine_fx(te, dy, fy):
     ----------
     te : float
         duration of the eclipse [day]
+    dx : array_like (1-D)
+        contains the x coordinate of ellipse centres [day]
     dy : array_like (1-D)
         contains the y coordinate of ellipse centres [day]
     fy : array_like (2-D)
@@ -105,7 +107,8 @@ def determine_fx(te, dy, fy):
     # we replace the nans with 1's as these come from fy**2 - 1 (1-1) = 0
     fx[fy==1] = 1
     # for point (dx, dy) = (0, 0) we know that fx=1
-    fx[0, 0] = 1
+    origin = (dy[:, None] == 0) * (dx[None, :] == 0)
+    fx[origin] = 1
     return fx
 
 def shear_ellipse_point(Rmin, s, fx, fy, theta):
@@ -435,7 +438,7 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
     dx = np.linspace(0, xmax, nx)
     # determining sub-parameters
     Fy = fy * np.ones((ny, nx))
-    Fx = determine_fx(te, dy, Fy)
+    Fx = determine_fx(te, dx, dy, Fy)
     s  = -dx[None, :] / dy[:, None]
     s[np.isnan(s)] = 0 # correct (dx, dy) = (0, 0)
     Rmin = np.hypot(te/2, dy)
@@ -462,7 +465,7 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
         S  = -DX[None, :] / DY[:, None]
         S[np.isnan(S)] = 0
         FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
-        FX = determine_fx(te, DY, FY)
+        FX = determine_fx(te, DX, DY, FY)
         for k, measured_x in enumerate(measured_xs):
             slope = ellipse_slope(measured_x, DX, DY, S, FX, FY)
             gradients[k] = slope_to_gradient(slope)
@@ -689,63 +692,378 @@ def get_closest_solution(a_cube, tilt_cube, inclination_cube, xmax, ymax, dfy,
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    from simulate_lightcurve import get_slope_lines
     # start demos
     print('===========================================')
     print('ALL THE METHODS IN SJALOT.PY WILL BE DEMOED')
     print('===========================================')
     print('')
-    ### SHEAR_ELLIPSE_POINT() ###
-    print('1. sjalot.shear_ellipse_point()')
-    print('-------------------------------')
-    print('This function shears a point on a circle to its location on an')
-    print('ellipse based on stretch factors in x and y, and a shear factor')
+    ### DETERMINE_FX() ###
+    print('1. sjalot.determine_fx()')
+    print('------------------------')
+    print('This function compensates for a stretching in the y direction of')
+    print('the smallest circle centred at (0, dy) that passes through points')
+    print('(-te/2, 0) and (te/2, 0).')
+    # initialise input parameters
+    print('  a. initialising input parameters')
     te = 1
     dy = np.array([0.7])
-    dx0 = np.array([0])
-    dx1 = np.array([0.3])
-    s0 = - dx0[None, :] / dy[:, None]
-    s1 = - dx1[None, :] / dy[:, None]
-    fy = np.array([[1]])
-    fx = determine_fx(te, dy, fy)
+    dx = np.array([0.0])
     Rmin = np.hypot(te/2, dy)
+    fy0 = np.array([[1]])
+    fx0 = determine_fx(te, dx, dy, fy0)
+    fy1 = np.array([[2]])
+    fx1 = determine_fx(te, dx, dy, fy1)
+    fy2 = np.array([[0.85]])
+    fx2 = determine_fx(te, dx, dy, fy2)
+    print('     te = %.2f' % te)
+    print('     dx[0] = %.2f' % dx[0])
+    print('     dy[0] = %.2f' % dy[0])
+    print('     Rmin[0] = %.2f' % Rmin[0])
+    print('     strech_factors:')
+    print('       (fx[0,0], fy[0,0]) = (%.2f, %.2f)' % (fx0[0,0], fy0[0,0]))
+    print('       (fx[0,0], fy[0,0]) = (%.2f, %.2f)' % (fx1[0,0], fy1[0,0]))
+    print('       (fx[0,0], fy[0,0]) = (%.2f, %.2f)' % (fx2[0,0], fy2[0,0]))
+    # list dependencies
+    print('  b. demo via:')
+    print('     sjalot.shear_ellipse_point()')
+    print('       - (dx = 0 --> s = 0)')
+    # prepare demo
+    print('  c. running sjalot.determine_fx() demo')
+    # create figure
+    fig = plt.figure(figsize=(16, 9))
+    fig.suptitle('Demo: sjalot.determine_fx()')
+    # draw circle
     theta = np.linspace(0, 2*np.pi, 1001)
-    xp0, yp0 = shear_ellipse_point(Rmin, s0, fx, fy, theta)
-    xp1, yp1 = shear_ellipse_point(Rmin, s1, fx, fy, theta)
-    fig = plt.figure()
+    xc, yc = shear_ellipse_point(Rmin, np.array([[0]]), fx0, fy0, theta)
+    s = np.array([[0]])
+    # fy = 2 - prepare axes (full diagram, zoom of ingress, zoom of egress)
+    ax1a = plt.subplot2grid((3, 4), (0, 0), rowspan=2, colspan=2)
+    ax1b = plt.subplot2grid((3, 4), (2, 0))
+    ax1c = plt.subplot2grid((3, 4), (2, 1))
+    ax1 = [ax1a, ax1b, ax1c]
+    title = 'fy = %.2f   -->   fx = %.2f' % (fy1[0,0], fx1[0,0])
+    # x and y coordinates for (b)ad (fx = 1) and (g)ood ellipses (fx = fx)
+    x1b, y1b = shear_ellipse_point(Rmin, s, fx0, fy1, theta)
+    x1g, y1g = shear_ellipse_point(Rmin, s, fx1, fy1, theta)
+    # plot all circles/ellipses into subplots
+    for ax in ax1:
+        ax.set_aspect('equal')
+        ax.set_xlabel('x [day]')
+        ax.set_ylabel('y [day]')
+        ax.set_title(title)
+        ax.plot(xc[0], yc[0] + dy[0], 'b-', label='smallest circle')
+        ax.plot(x1b[0], y1b[0] + dy[0], 'r:', label='fy stretch applied')
+        ax.plot(x1g[0], y1g[0] + dy[0], 'g-', label='fx compensation applied')
+        ax.plot([-100, -te/2], [0, 0], 'k-o', label='eclipse bounds')
+        ax.plot([te/2, 100], [0, 0], 'k-o')
+        title=''
+    # set axes limits
+    ax1a.set_xlim(-2.5, 2.5)
+    ax1a.set_ylim(-1, 3)
+    ax1a.legend()
+    ax1b.set_xlim(-te/2 - 0.2, -te/2 + 0.2)
+    ax1b.set_ylim(-0.2, 0.2)
+    ax1c.set_xlim(te/2 - 0.2, te/2 + 0.2)
+    ax1c.set_ylim(-0.2, 0.2)
+    # fy = 0.85 - prepare axes (full diagram, zoom of ingress, zoom of egress)
+    ax2a = plt.subplot2grid((3, 4), (0, 2), rowspan=2, colspan=2)
+    ax2b = plt.subplot2grid((3, 4), (2, 2))
+    ax2c = plt.subplot2grid((3, 4), (2, 3))
+    ax2 = [ax2a, ax2b, ax2c]
+    title = 'fy = %.2f   -->   fx = %.2f' % (fy2[0,0], fx2[0,0])
+    # x and y coordinates for (b)ad (fx = 1) and (g)ood ellipses (fx = fx)
+    x2b, y2b = shear_ellipse_point(Rmin, s, fx0, fy2, theta)
+    x2g, y2g = shear_ellipse_point(Rmin, s, fx2, fy2, theta)
+    # plot all circles/ellipses into subplots
+    for ax in ax2:
+        ax.set_aspect('equal')
+        ax.set_xlabel('x [day]')
+        ax.set_ylabel('y [day]')
+        ax.set_title(title)
+        ax.plot(xc[0], yc[0] + dy[0], 'b-', label='smallest circle')
+        ax.plot(x2b[0], y2b[0] + dy[0], 'r:', label='fy compression applied')
+        ax.plot(x2g[0], y2g[0] + dy[0], 'g-', label='fx compensation applied')
+        ax.plot([-100, -te/2], [0, 0], 'k-o', label='eclipse bounds')
+        ax.plot([te/2, 100], [0, 0], 'k-o')
+        title=''
+    # set axes limits
+    ax2a.set_xlim(-2.5, 2.5)
+    ax2a.set_ylim(-1, 3)
+    ax2a.legend()
+    ax2b.set_xlim(-te/2 - 0.2, -te/2 + 0.2)
+    ax2b.set_ylim(-0.2, 0.2)
+    ax2c.set_xlim(te/2 - 0.2, te/2 + 0.2)
+    ax2c.set_ylim(-0.2, 0.2)
+    # show
+    plt.show()
+    print('\n')
+    ### SHEAR_ELLIPSE_POINT() ###
+    print('2. sjalot.shear_ellipse_point()')
+    print('-------------------------------')
+    print('This function shears a point on a circle to its location on an')
+    print('ellipse based on stretch factors in x and y, and a shear factor.')
+    # initialise parameters
+    print('  a. intialising parameters:')
+    dx3 = np.array([0.3])
+    s3 = - dx3[None, :] / dy[:, None]
+    fx3 = determine_fx(te, dx3, dy, fy0)
+    print('     dx[0] = %.2f' % dx3[0])
+    print('     s3[0,0] = %.2f' % s3[0, 0])
+    # list dependencies 
+    print('  b. demo via:')
+    print('     -none-')
+    # prepare demo
+    print('  c. running sjalot.shear_ellipse_point() demo')
+    # find sheared ellipse
+    xs, ys = shear_ellipse_point(Rmin, s3, fx3, fy0, theta)
+    # prepare figure
+    fig = plt.figure(figsize=(8, 9))
     fig.suptitle('Demo: sjalot.shear_ellipse_point() (fy = 1, fx = 1)')
-    ax0 = plt.subplot2grid((2, 3), (0, 0), rowspan=2, colspan=2)
-    ax1 = plt.subplot2grid((2, 3), (0, 2))
-    ax2 = plt.subplot2grid((2, 3), (1, 2))
+    # prepare subplots - full diagram, zoom of ingress, zoom of egress
+    ax0 = plt.subplot2grid((3, 2), (0, 0), rowspan=2, colspan=2)
+    ax1 = plt.subplot2grid((3, 2), (2, 0))
+    ax2 = plt.subplot2grid((3, 2), (2, 1))
     axes = [ax0, ax1, ax2]
+    # plot all circles/ellipses into subplots
     for ax in axes:
         ax.set_aspect('equal')
         ax.set_xlabel('x [day]')
         ax.set_ylabel('y [day]')
-        ax.plot(xp0[0] + dx0[0], yp0[0] + dy[0], 'b-', label='smallest circle')
-        ax.plot(dx0[0], dy[0], 'bo')
-        ax.plot(xp1[0] + dx1[0], yp1[0] + dy[0], 'r-', label='sheared circle')
-        ax.plot(dx1[0], dy[0], 'ro')
-        ax.plot([-100, -te/2], [0,0], 'k-', label='eclipse bounds')
-        ax.plot([te/2, 100], [0,0], 'k-')
-        ax.plot([-te/2, te/2], [0,0], 'ko')
-    ax0.set_xlim(-2, 2)
+        ax.plot(xc[0], yc[0] + dy[0], 'b-', label='smallest circle')
+        ax.plot(0, dy[0], 'bo')
+        ax.plot(xs[0] + dx3[0], ys[0] + dy[0], 'r-', label='sheared circle')
+        ax.plot(dx3[0], dy[0], 'ro')
+        ax.plot([-100, -te/2], [0,0], 'k-o', label='eclipse bounds')
+        ax.plot([te/2, 100], [0,0], 'k-o')
+    # draw shearing arrows
+    ax0.arrow(xc[0, 0], yc[0, 0] + dy[0], xs[0, 0] + dx3[0] - xc[0,0], 
+              ys[0, 0] - yc[0, 0], color='k', length_includes_head=True,
+              width=0.01)
+    ax0.arrow(xc[0, 250], yc[0, 250] + dy[0], xs[0, 250] + dx3[0] - xc[0, 250], 
+              ys[0, 250] - yc[0, 250], color='k', length_includes_head=True,
+              width=0.01)
+    ax0.arrow(xc[0, 700], yc[0, 700] + dy[0], xs[0, 700] + dx3[0] - xc[0, 700],
+              ys[0, 700] - yc[0, 700], color='k', length_includes_head=True,
+              width=0.01)
+    ax0.arrow(0, dy[0], dx3[0], 0, color='k', length_includes_head=True, 
+              width=0.01)
+    # set axes limits
+    ax0.set_xlim(-2.5, 2.5)
     ax0.set_ylim(-1, 3)
     ax0.legend()
-    ax1.set_xlim(-te/2-0.2, -te/2+0.2)
+    ax1.set_xlim(-te/2 - 0.2, -te/2 + 0.2)
     ax1.set_ylim(-0.2, 0.2)
-    ax2.set_xlim(te/2-0.2, te/2+0.2)
+    ax2.set_xlim(te/2 - 0.2, te/2 + 0.2)
     ax2.set_ylim(-0.2, 0.2)
     plt.show()
+    print('\n')
+    """
+THIS IS A HELPER FUNCTION
+    ### THETA_MAX_MIN() ###
+    print('3. sjalot.theta_max_min()')
+    print('-------------------------')
+    print('This function finds the angle of either the semi-major or the')
+    print('semi-minor axis of an ellipse (adding pi/2 to the angle gives')
+    print('the other semi-axis.')
+    # initialise parameters
+    print('  a. initialising parameters')
+    print('     -none-')
+    # list dependencies
+    print('  b. demo via:')
+    print('     sjalot.shear_ellipse_point()')
+    print('      - helper: sjalot.determine_fx()')
+    # prepare demo
+    print('  c. running sjalot.theta_max_min() demo')
+    # determine angle and points
+    theta_ab = theta_max_min(s3, fx0, fy0)
+    xa, ya = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab)
+    xb, yb = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab + np.pi/2)
+    xa2, ya2 = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab + np.pi)
+    xb2, yb2 = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab - np.pi/2)
+    # prepare figure
+    fig = plt.figure(figsize=(8, 6))
+    plt.title('Demo: sjalot.theta_max_min()')
+    plt.gca().set_aspect('equal')
+    # plot ellipse and points
+    plt.plot(xs[0] + dx3[0], ys[0] + dy[0], 'r-', label='ellipse')
+    plt.plot(dx3[0], dy[0], 'ro')
+    plt.plot(xa[0] + dx3[0], ya[0] + dy[0], 'go', label='theta_max_min()')
+    plt.plot(xb[0] + dx3[0], yb[0] + dy[0], 'bo', label='+ $\\frac{\pi}{2}$')
+    plt.plot(xa2[0] + dx3[0], ya2[0] + dy[0], 'gd', label='+ $\pi$')
+    plt.plot(xb2[0] + dx3[0], yb2[0] + dy[0], 'bd', 
+             label='+ $\\frac{3 \pi}{2}$')
+    # plot semi-major/minor axes
+    plt.plot([xa[0] + dx3[0], xa2[0] + dx3[0]], 
+             [ya[0] + dy[0], ya2[0] + dy[0]], 'g:')
+    plt.plot([xb[0] + dx3[0], xb2[0] + dx3[0]], 
+             [yb[0] + dy[0], yb2[0] + dy[0]], 'b:')
+    # plot eclipse lines
+    plt.plot([-100, -te/2], [0, 0], 'k-o', label='eclipse bounds')
+    plt.plot([te/2, 100], [0, 0], 'k-o')
+    # set labels and limits
+    plt.xlabel('x [day]')
+    plt.ylabel('y [day]')
+    plt.legend()
+    plt.xlim(-2.5, 2.5)
+    plt.ylim(-1, 3)
+    plt.show()
+    print('\n')
+THIS IS A HELPER FUNCTION
+    """
+    ### ELLIPSE_PARAMETERS() ###
+    print('4. sjalot.ellipse_parameters()')
+    print('------------------------------')
+    print('This function retrieves all the interesting ellipse parameters')
+    print('namely the semi-major axis, the semi-minor axis, the tilt and the')
+    print('inclination of the ellipse.')
+    # intialise parameters
+    print('  a. initialising parameters:')
+    print('     -none-')
+    # list dependencies
+    print('  b. demo via:')
+    print('     sjalot.shear_ellipse_point()')
+    print('      - helper: sjalot.theta_max_min()')
+    print('      - helper: sjalot.determine_fx()')
+    # prepare demo
+    print('  c. running sjalot.ellipse_parameters() demo')
+    a, b, tilt, inclination = ellipse_parameters(Rmin, s3, fx3, fy0)
+    print('     > ellipse_parameters()')
+    print('     >   semi-major axis = %.2f [day]' % a[0, 0])
+    print('     >   semi-minor axis = %.2f [day]' % b[0, 0])
+    print('     >   tilt = %.2f [deg]' % tilt[0, 0])
+    print('     >   inclination = %.2f [deg]' % inclination[0, 0])
+    print('     > measuring values from previous plot')
+    R1 = np.hypot(xa[0] - xa2[0], ya[0] - ya2[0])
+    R2 = np.hypot(xb[0] - xb2[0], yb[0] - yb2[0])
+    ra = np.maximum(R1, R2)
+    rb = np.minimum(R1, R2)
+    if R1 > R2:
+        t = np.arctan2(ya[0], xa[0])
+    else:
+        t = np.arctan2(yb[0], xb[0])
+    t = np.rad2deg(t)
+    i = np.rad2deg(np.arccos(rb / ra))
+    print('     >   semi-major axis = %.2f [day]' % ra[0])
+    print('     >   semi-minor axis = %.2f [day]' % rb[0])
+    print('     >   tilt = %.2f [deg]' % t[0])
+    print('     >   inclination = %.2f [deg]' % i[0])
+    print('     > plotting for confirmation')
+    # prepare figure
+    fig = plt.figure(figsize=(8, 6))
+    plt.title('Demo: sjalot.ellipse_parameters()')
+    plt.gca().set_aspect('equal')
+    # plot ellipse and points
+    plt.plot(xs[0] + dx3[0], ys[0] + dy[0], 'r-', label='ellipse')
+    plt.plot(dx3[0], dy[0], 'ro')
+    # plot semi-major/minor axes
+    plt.plot([xa[0] + dx3[0], xa2[0] + dx3[0]], 
+             [ya[0] + dy[0], ya2[0] + dy[0]], 'g:', label='a = %.2f [day]' 
+             % ra[0])
+    plt.plot([xb[0] + dx3[0], xb2[0] + dx3[0]], 
+             [yb[0] + dy[0], yb2[0] + dy[0]], 'b:', label='b = %.2f [day]' 
+             % rb[0])
+    # plot horizontal line
+    plt.gca().axhline(y=dy[0], color='k', ls=':')
+    plt.text(dx3[0] + 0.2, dy[0] + 0.05, '$\phi$ = %.2f$^\circ$' % t[0])
+    plt.text(dx3[0] - 0.3, dy[0] + 0.45, '$i$ = %.2f$^\circ$' % i[0]) 
+    # plot eclipse lines
+    plt.plot([-100, -te/2], [0, 0], 'k-o', label='eclipse bounds')
+    plt.plot([te/2, 100], [0, 0], 'k-o')
+    # set labels and limits
+    plt.xlabel('x [day]')
+    plt.ylabel('y [day]')
+    plt.legend()
+    plt.xlim(-2.5, 2.5)
+    plt.ylim(-1, 3)
+    plt.show()
+    print('\n')
+    ### ELLIPSE_SLOPE() ###
+    print('5. sjalot.ellipse_slope()')
+    print('-------------------------')
+    print('This function determines the slope of a concentric ellipse that')
+    print('intersects with the time, x, provided (x, 0).')
+    # intialise parameters
+    print('  a. initialising parameters:')
+    x00 = -0.40
+    x01 = -0.25
+    x02 = 0.10
+    print('     time, x values:')
+    print('       x = %.2f' % x00)
+    print('       x = %.2f' % x01)
+    print('       x = %.2f' % x02)
+    # list dependencies
+    print('  b. demo via:')
+    print('     sjalot.shear_ellipse_point()')
+    print('      - helper: sjalot.determine_fx()')
+    print('     helper: simulate_lightcurve.get_slope_lines()')
+    # prepare demo
+    print('  c. running sjalot.ellipse_slope() demo')
+    # determine slopes
+    slope00 = ellipse_slope(x00, dx3, dy, s3, fx0, fy0)
+    slope01 = ellipse_slope(x01, dx3, dy, s3, fx0, fy0)
+    slope02 = ellipse_slope(x02, dx3, dy, s3, fx0, fy0)
+    # defining get_slope_lines parameters
+    slopes = np.array([slope00[0, 0], slope01[0, 0], slope02[0, 0]])
+    slope_times = np.array([x00, x01, x02])
+    time = np.linspace(-te/2, te/2, 101)
+    lightcurve = np.zeros_like(time)
+    slope_lines = get_slope_lines(time, lightcurve, slope_times, slopes, 0.1)
+    # draw sub-ellipses
+    Rmin00 = np.hypot(x00/fx3[0, 0], dy/fy0[0, 0])
+    xs00, ys00 = shear_ellipse_point(Rmin00, s3, fx3, fy0, theta)
+    Rmin01 = np.hypot(x01/fx3[0, 0], dy/fy0[0, 0])
+    xs01, ys01 = shear_ellipse_point(Rmin01, s3, fx3, fy0, theta)
+    Rmin02 = np.hypot(x02/fx3[0, 0], dy/fy0[0, 0])
+    xs02, ys02 = shear_ellipse_point(Rmin02, s3, fx3, fy0, theta)
+    # prepare figure
+    fig = plt.figure(figsize=(8, 6))
+    fig.suptitle('Demo: sjalot.ellipse_slope()')
+    plt.gca().set_aspect('equal')
+    # plot ellipses and lines
+    plt.plot(xs[0] + dx3[0], ys[0] + dy[0], 'r-', label='ellipse')
+    plt.plot(xs00[0] + dx3[0], ys00[0] + dy[0], 'r-')
+    plt.plot(xs01[0] + dx3[0], ys01[0] + dy[0], 'r-')
+    plt.plot(xs02[0] + dx3[0], ys02[0] + dy[0], 'r-')
+    # plot lines and points
+    plt.plot(x00, 0, 'go', label='x = %.2f [day]' % x00)
+    plt.plot(x01, 0, 'bo', label='x = %.2f [day]' % x01)
+    plt.plot(x02, 0, 'yo', label='x = %.2f [day]' % x02)
+    for slope_line in slope_lines:
+        plt.plot(slope_line[0], slope_line[1], 'k:')
+    plt.plot([-100, -te/2], [0, 0], 'k-o', label='eclipse bounds')
+    plt.plot([te/2, 100], [0, 0], 'k-o')
+    plt.xlim(-1, 1.5)
+    plt.ylim(-0.25, 1.75)
+    plt.legend()
+    plt.show()
+    print('\n')
+    ### SLOPE_TO_GRADIENTS() ###
+    print('6. sjalot.slope_to_gradient()')
+    print('-----------------------------')
+    print('This function converts the light curve slope determined by the')
+    print('previous function to a projected angular gradient. This is done')
+    print('by taking the absolute value of the sine of the arctangent of the')
+    print('slope. This is discussed in greater detail in Kenworthy & Mamajek')
+    print('2015 (https://iopscience.iop.org/article/10.1088/0004-637X/800/2/')
+    print('126). [Demo n/a]')
+    print('\n')
+    ### FILL_QUADRANTS() ###
+    ### MASK_PARAMETERS() ###
 
-#def determine_fx(te, dy, fy):
-#    return fx
-#def shear_ellipse_point(Rmin, s, fx, fy, theta):
-#    return xp, yp
-#def theta_max_min(s, fx, fy):
-#    return theta_max_min
-#def ellipse_parameters(Rmin, s, fx, fy):
-#    return a, b, np.rad2deg(tilt), np.rad2deg(inclination)
-#def ellipse_slope(x, dx, dy, s, fx, fy):
-#    return slope
-#def slope_to_gradient(slope):
-# return gradient
+
+# def fill_quadrants(prop, is_tilt=False):
+#     return full_prop
+# def mask_parameters(a, b, tilt, inclination, gradients, mask):
+#     return a, b, tilt, inclination, gradients
+# def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
+#     return a, b, tilt, inclination, gradients
+# def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
+#     return ac, bc, tc, ic, gc
+# def grid_to_parameters(a_cube, tilt_cube, inclination_cube, xmax, ymax):
+#     return (disk_radii, disk_tilts, disk_inclinations, disk_impact_parameters,
+#             disk_dts)
+# def get_closest_solution(a_cube, tilt_cube, inclination_cube, xmax, ymax, dfy,
+#                          disk_radius, disk_tilt, disk_inclination,
+#                          disk_impact_parameter):
+#     return dx, dy, fy, best_indices
