@@ -807,6 +807,7 @@ if __name__ == "__main__":
     print('  a. intialising parameters:')
     dx3 = np.array([0.3])
     s3 = - dx3[None, :] / dy[:, None]
+    s3[np.isnan(s3)] == 0
     fx3 = determine_fx(te, dx3, dy, fy0)
     print('     dx[0] = %.2f' % dx3[0])
     print('     s3[0,0] = %.2f' % s3[0, 0])
@@ -858,8 +859,6 @@ if __name__ == "__main__":
     ax2.set_ylim(-0.2, 0.2)
     plt.show()
     print('\n')
-    """
-THIS IS A HELPER FUNCTION
     ### THETA_MAX_MIN() ###
     print('3. sjalot.theta_max_min()')
     print('-------------------------')
@@ -909,8 +908,6 @@ THIS IS A HELPER FUNCTION
     plt.ylim(-1, 3)
     plt.show()
     print('\n')
-THIS IS A HELPER FUNCTION
-    """
     ### ELLIPSE_PARAMETERS() ###
     print('4. sjalot.ellipse_parameters()')
     print('------------------------------')
@@ -1048,18 +1045,188 @@ THIS IS A HELPER FUNCTION
     print('2015 (https://iopscience.iop.org/article/10.1088/0004-637X/800/2/')
     print('126). [Demo n/a]')
     print('\n')
-    ### FILL_QUADRANTS() ###
-    ### MASK_PARAMETERS() ###
+    ### INVESTIGATE_ELLIPSES() ###
+    print('7. sjalot.investigate_ellipses()')
+    print('--------------------------------')
+    print('This is a helper function that reflects quadrants so that you can')
+    print('explore the parameter space more effectively.')
+    # initialise parameters
+    print('  a. initialising parameters:')
+    xmax = 50
+    nx = 101
+    ymax = 50
+    ny = 101
+    fy = 1.2
+    measured_xs = [-0.4, 0.2]
+    print('     xmax = %.2f' % xmax)
+    print('     nx = %i' % nx)
+    print('     ymax = %.2f' % ymax)
+    print('     ny = %i' % dy)
+    print('     fy = %.2f' % fy)
+    print('     measured_xs:')
+    for measured_x in measured_xs:
+        print('        x = %.2f' % measured_x)
+    # list dependencies
+    print('  b. demo via:')
+    print('     helper: sjalot.fill_quadrants()')
+    print('       - will be compared to version without fill_quadrants')
+    print('     helper: sjalot.slope_to_gradient()')
+    # prepare demo
+    print('  c. running sjalot.investigate_ellipses() demo')
+    a, b, t, i, g = investigate_ellipses(te, xmax, ymax, fy, measured_xs, nx, ny)
+    DXF = np.linspace(-50, 50, 201)
+    DYF = np.linspace(-50, 50, 201)
+    RMINF = np.hypot(te/2, DYF)
+    SF = -DXF[None, :] / DYF[:, None]
+    SF[np.isnan(SF)] = 0
+    FYF = 1.2 * np.ones_like(SF) 
+    FXF = determine_fx(te, DXF, DYF, FYF)
+    A, B, T, I = ellipse_parameters(RMINF, SF, FXF, FYF)
+    G = []
+    for measured_x in measured_xs:
+        slope = ellipse_slope(measured_x, DXF, DYF, SF, FXF, FYF)
+        gradient = slope_to_gradient(slope)
+        G.append(gradient)
+    G = np.array(G)
+    ie_params = (a, b, t, i, g[0])
+    ff_params = (A, B, T, I, G[0])
+    lbls = ['semi-major axis', 'semi-minor axis', 'tilt', 'inclination', 
+            'gradient']
+    print('> validating sjalot.fill_quadrants()')
+    for iep, ffp, lbl in zip(ie_params, ff_params, lbls):
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        fig.suptitle('Demo: sjalot.investigate_ellipses() -- %s' % lbl)
+        # investigate ellipses
+        ax0 = axes[0]
+        im0 = ax0.imshow(iep, origin='lower', extent=(-xmax, xmax, -ymax, ymax),
+                         cmap=plt.cm.get_cmap('viridis', 11))
+        ax0.set_title('sjalot.investigate_ellipses()')
+        ax0.set_xlabel('x [day]')
+        ax0.set_ylabel('y [day]')
+        fig.colorbar(im0, ax=ax0)
+        ax1 = axes[1]
+        im1 = ax1.imshow(ffp, origin='lower', extent=(-xmax, xmax, -ymax, ymax),
+                         cmap=plt.cm.get_cmap('viridis', 11))
+        ffp_title = 'sjalot.ellipse_parameters() &\n'
+        ffp_title = ffp_title + 'sjalot.ellipse_slopes() --> '
+        ffp_title = ffp_title + 'sjalot.slope_to_gradient()'
+        ax1.set_title(ffp_title)
+        ax1.set_xlabel('x [day]')
+        ax1.set_ylabel('y [day]')
+        fig.colorbar(im1, ax=ax1)
+        diff = np.nansum(np.abs(iep-ffp))
+        print('>  %s total difference: %.8f' % (lbl, diff))
+        plt.show()
+    ### FULL_INVESTIGATION() ###
+    print('7. sjalot.full_investigation()')
+    print('------------------------------')
+    print('This function does a full scale version of investigate_ellipses.')
+    print('The major difference is that it takes into consideration the')
+    print('maximum disk size (30% of the Hill radius), and all the measured')
+    print('slopes in the light curve. It outputs a semi-major and semi-minor')
+    print('axis, tilt, inclination, and the relevant gradient cubes with the')
+    print('coordinates of dx, dy, dfy.')
+    # initialise parameters
+    print('  a. initialising parameters:')
+    Rmax = 50 
+    measured = [(-0.4, 0.2), (0.2, 0.3)]
+    dfy = 0.5
+    print('     Rmax = %.2f [day]' % Rmax)
+    print('     measured:')
+    for point in measured:
+        print('       (time, gradient( = (%.2f, %.2f)' % point)
+    print('     dfy = %.2f' % dfy)
+    # list dependencies
+    print('  b. demo via:')
+    print('     sjalot.scroll_plotter()')
+    # prepare demo
+    print('  c. running sjalot.full_investigation() demo')
+    ac, bc, tc, ic, gc = full_investigation(te, xmax, ymax, dfy, Rmax, nx, ny,
+                                            measured)
+    # define scroll function
+    def key_event(e):
+        '''
+        This function allows one to scroll through the cubes produced above
+        '''
+        global curr_pos
+        nf = data_cube.shape[2]
+        if e.key == 'right' and curr_pos < nf:
+            curr_pos += 1
+        elif e.key == 'left' and curr_pos >= 0:
+            curr_pos -= 1
+        else:
+            return
+        curr_pos = curr_pos % data_cube.shape[2]
+        ax.cla()
+        ax.imshow(data_cube[:, :, curr_pos], origin='lower', extent=(-xmax, 
+                  xmax, -ymax, ymax), cmap=plt.cm.get_cmap('viridis', 11))
+        ax.set_title('fy = %.2f' % fys[curr_pos])
+        ax.set_xlabel('x [day]')
+        ax.set_ylabel('y [day]')
+        fig.canvas.draw()
+    # cycle through parameters
+    data_cubes = (ac, bc, tc, ic, gc[0], gc[1])
+    lbls = ['semi-major axis', 'semi-minor axis', 'tilt', 'inclination',
+            'gradient[0]', 'gradient[1]']
+    for data_cube, lbl in zip(data_cubes, lbls):
+        curr_pos = 40
+        fys = np.arange(0, data_cube.shape[2], dfy) 
+        fig = plt.figure()
+        fig.suptitle('Demo: sjalot.full_investigation() --> %s' % lbl)
+        fig.canvas.mpl_connect('key_press_event', key_event)
+        ax = fig.add_subplot(111)
+        ax.set_title('fy = %.2f' % fys[curr_pos])
+        im = ax.imshow(data_cube[:, :, curr_pos], origin='lower', extent=(-xmax, 
+                  xmax, -ymax, ymax), cmap=plt.cm.get_cmap('viridis', 11))
+        ax.set_xlabel('x [day]')
+        ax.set_ylabel('y [day]')
+        plt.colorbar(im, ax=ax)
+        plt.show()
+    print('\n')
+    ### GRID_TO_PARAMETERS() ###
+    print('8. sjalot.grid_to_parameters()')
+    print('------------------------------')
+    print('This function takes the data cubes from full_investigation() and')
+    print('extracts the relevant disk features, namely the disk radius (which')
+    print('is equivalent to the semi-minor axis), the tilt, the inclination,')
+    print('the impact parameter (which is the dy grid point), and the time of')
+    print('closest approach -dt- (which is the dx grid point), for all points')
+    print('which are not NaNs. [Demo n/a]')
+    print('\n')
+    ### GET_CLOSEST_SOLUTION() ###
+    print('9. sjalot.get_closest_solution()')
+    print('--------------------------------')
+    print('This function takes in the data cubes outputted by the function')
+    print('full_investigation() and the values of a simulated disk and finds')
+    print('the closest grid point to that solution.')
+    # intialise parameters
+    print('  a. initialising parameters:')
+    te = 10.16
+    xmax = 10
+    ymax = 10
+    dfy = 0.5
+    Rmax = 100
+    nx = 50
+    ny = 50
+    time = np.linspace(-15, 15, 301)
+    planet_radius = 0
+    inner_radii = [1e-16]
+    outer_radii = [80]
+    opacities = [1.]
+    inclination = 83
+    tilt = 35
+    dt = 1.08
+    u = 0.00
+    vt = 3.6
+    print('     te = %.2f' % te)
+    print('     xmax = %.2f' % xmax)
+    print('     ymax = %.2f' % ymax)
 
 
-# def fill_quadrants(prop, is_tilt=False):
-#     return full_prop
-# def mask_parameters(a, b, tilt, inclination, gradients, mask):
-#     return a, b, tilt, inclination, gradients
-# def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
-#     return a, b, tilt, inclination, gradients
-# def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
-#     return ac, bc, tc, ic, gc
+    
+
+
+
 # def grid_to_parameters(a_cube, tilt_cube, inclination_cube, xmax, ymax):
 #     return (disk_radii, disk_tilts, disk_inclinations, disk_impact_parameters,
 #             disk_dts)
