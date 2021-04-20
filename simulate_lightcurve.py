@@ -70,41 +70,41 @@ def simulate_lightcurve(time, planet_radius, inner_radii, outer_radii,
     Parameters
     ----------
     time : array_like (1-D)
-        time points at which to calculate the light curve
+        Time points at which to calculate the light curve.
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     inner_radii : array_like (1-D)
-        inner dimensions of the rings [R*]
+        Inner dimensions of the rings [R*].
     outer_radii : array_like (1-D)
-        outer dimensions of the rings [R*]
+        Outer dimensions of the rings [R*].
     opacities : array_like (1-D)
-        opacities of each ring [-]
+        Opacities of each ring [-].
     inclination : float
-        inclination of the ring system [deg]
+        Inclination of the ring system [deg].
     tilt : float
-        tilt of the rings, the angle between the path of orbital motion and
-        the semi-major axis of the projected ellipse [deg]
+        Tilt of the rings, the angle between the path of orbital motion and
+        the semi-major axis of the projected ellipse [deg].
     impact_parameter : float
-        impact parameter between the centre of the rings w.r.t. the centre of 
-        the star [R*]
+        Impact parameter between the centre of the rings w.r.t. the centre of 
+        the star [R*].
     dt : float
-        this is a delta time parameter that can be used to shift the light
-        curve left or right in time space [day]
+        This is a delta time parameter that can be used to shift the light
+        curve left or right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u,  of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
 
     Returns
     -------
     lightcurve : array_like (1-D)
-        simulated theoretical light curve (normalised flux) based on the 
-        inputs [L*]
+        Simulated theoretical light curve (normalised flux) based on the 
+        inputs [L*].
     lightcurve_components : list of array_like (1-D)
-        list containing the lightcurves produced by each of the components of
-        the companion (planet + rings/disks) [L*]
+        List containing the lightcurves produced by each of the components of
+        the companion (planet + rings/disks) [L*].
     '''
     # create zeros and ones array
     zero = np.zeros_like(time)
@@ -169,26 +169,26 @@ def generate_random_ringsystem(radius_max, ring_num_min=3, ring_num_max=12,
     Parameters
     ----------
     radius_max : float
-        maximum size of the disk [R*]
+        Maximum size of the disk [R*].
     ring_num_min : int
-        minimum number of rings to separate the disk into
+        Minimum number of rings to separate the disk into.
     ring_num_max : int
-        maximum number of rings to separate the disk into
+        Maximum number of rings to separate the disk into.
     tau_min : float
-        minimum opacity of a ring [default = 0]
+        Minimum opacity of a ring [default = 0].
     tau_max : float
-        maximum opacity of a ring [default = 1]
+        Maximum opacity of a ring [default = 1].
     print_rings : bool
-        if true then prints ring stats [default = True]
+        If true then prints ring stats [default = True].
     
     Returns
     -------
     inner_radii : array_like (1-D)
-        inner dimensions of the rings [R*]
+        Inner dimensions of the rings [R*].
     outer_radii : array_like (1-D)
-        outer dimensions of the rings [R*]
+        Outer dimensions of the rings [R*].
     opacities : array_like (1-D)
-        opacities of each ring [-]
+        Opacities of each ring [-].
     '''
     # random number of rings
     num_rings = np.random.randint(ring_num_min, ring_num_max)
@@ -225,23 +225,23 @@ def add_noise(lightcurve, noise_func, noise_args, seed=None):
     Parameters
     ----------
     lightcurve : array_like (1-D)
-        simulated theoretical light curve (normalised flux) based on the 
-        inputs [L*]
+        Simulated theoretical light curve (normalised flux) based on the 
+        inputs [L*].
     noise_func : function
-        this function must be one such that it produces random numbers and has
-        an argument size (see np.random documentation)
+        This function must be one such that it produces random numbers and has
+        an argument size (see np.random documentation).
     noise_args : tuple
-        this is an ordered tuple containing all the relevant arguments for the
-        noise_func, with the exception of size (see np.random documentation)
+        This is an ordered tuple containing all the relevant arguments for the
+        noise_func, with the exception of size (see np.random documentation).
     seed : int
-        this sets the random noise generator so that you can extend noise runs
-        performed at an earlier time
+        This sets the random noise generator so that you can extend noise runs
+        performed at an earlier time.
 
     Returns
     -------
     noisy_lightcurve : array_like (1-D)
-        simulated theoretical lightcurve (normalised flux) with additional
-        noise components defined by this function
+        Simulated theoretical lightcurve (normalised flux) with additional
+        noise components defined by this function.
     '''
     # determine where the out-of-transit data is
     stellar_flux_mask = (lightcurve == 1)
@@ -264,19 +264,19 @@ def remove_data(time, lightcurve, remove=None):
     Parameters
     ----------
     time : array_like (1-D)
-        time data for the light curve [day]
+        Time data for the light curve [day].
     lightcurve : array_like (1-D)
-        normalised flux data for the light curve [L*]
+        Normalised flux data for the light curve [L*].
     remove : int or array_like (1-D) of int
-        contains either the number of points to removed (chosen at random)
-        or an index array for which points to remove
+        Contains either the number of points to removed (chosen at random)
+        or an index array for which points to remove.
 
     Returns
     -------
     incomplete_time : array_like (1-D)
-        time data for the light curve with data removed [day]
+        Time data for the light curve with data removed [day].
     incomplete_lightcurve : array_like (1-D)
-        normalised flux data for the light curve with data removed [L*] 
+        Normalised flux data for the light curve with data removed [L*].
     '''
     if type(remove) == int:
         remove = np.random.randint(0, len(time) - 1, remove)
@@ -297,18 +297,18 @@ def calculate_slope(time, lightcurve, slope_bounds):
     Parameters
     ----------
     time : array_like (1-D)
-        time data for the light curve [day]
+        Time data for the light curve [day].
     lightcurve : array_like (1-D)
-        normalised flux data for the light curve [L*]
+        Normalised flux data for the light curve [L*].
     slope_bounds : tuple
-        contains the time bounds for the slope calculation
+        Contains the time bounds for the slope calculation.
 
     Returns
     -------
     slope_time : array_like (1-D)
-        time at which slope is measured [day]
+        Time at which slope is measured [day].
     slope : array_like (1-D)
-        slope measured in the lightcurve [L*/day]
+        Slope measured in the lightcurve [L*/day].
     '''
     # select the relevant section of the lightcurve
     mask = (time >= slope_bounds[0]) * (time <= slope_bounds[1])
@@ -327,19 +327,19 @@ def calculate_slopes(time, lightcurve, slope_bounds_list):
     Parameters
     ----------
     time : array_like (1-D)
-        time data for the light curve [days]
+        Time data for the light curve [days].
     lightcurve : array_like (1-D)
-        normalised flux data for the light curve [L*]
+        Normalised flux data for the light curve [L*].
     slope_bounds_list : list of tuples
-        contains a list of slope bound tuples, which contain the lower 
-        and upper time bounds which the slopes are calculated [day]
+        Contains a list of slope bound tuples, which contain the lower 
+        and upper time bounds which the slopes are calculated [day].
 
     Returns
     -------
     slope_times : array_like (1-D)
-        time at which slope is measured [day]
+        Time at which slope is measured [day].
     slopes : array_like (1-D)
-        slopes measured in the lightcurve [L*/day]
+        Slopes measured in the lightcurve [L*/day].
     '''
     # set up arrays
     num_slopes = len(slope_bounds_list)
@@ -362,16 +362,16 @@ def get_min_velocity(slopes, limb_darkening):
     Parameters
     ----------
     slopes : array_like (1-D)
-        slopes measured in the light curve [L*/day]
+        Slopes measured in the light curve [L*/day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u,  of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     
     Returns
     -------
     min_velocity : float
-        the minimum transverse velocity of the occulting object [R*/day]
+        The minimum transverse velocity of the occulting object [R*/day].
     '''
     # determine the maximum slope dL/dt
     dLdt = np.amax(np.abs(slopes))
@@ -392,14 +392,14 @@ def get_min_disk_radius(min_velocity, eclipse_duration):
     Parameters
     ----------
     min_velocity : float
-        the minimum transverse velocity of the occulting object [R*/day]
-    eclipse_duartion : float
-        duration of the eclipse [day]
+        The minimum transverse velocity of the occulting object [R*/day].
+    eclipse_duration : float
+        Duration of the eclipse [day].
 
     Returns
     -------
     min_disk_radius : float
-        minimum size of the disk [R*]
+        Minimum size of the disk [R*].
     '''
     min_disk_radius = 0.5 * min_velocity * eclipse_duration
     return min_disk_radius 
@@ -418,15 +418,15 @@ def get_slope_lines(time, lightcurve, slope_times, slopes, length=0.1):
     Parameters
     ----------
     time : array_like (1-D)
-        time data for the light curve [day]
+        Time data for the light curve [day].
     lightcurve : array_like (1-D)
-        normalised flux data for the light curve [L*]
+        Normalised flux data for the light curve [L*].
     slope_times : array_like (1-D)
-        time at which slope is measured [day]
+        Time at which slope is measured [day].
     slopes : array_like (1-D)
-        slopes measured in the lightcurve [L*/day]
+        Slopes measured in the lightcurve [L*/day].
     length : float
-        length of the line [day]
+        Length of the line [day].
 
     Returns 
     -------
@@ -459,29 +459,30 @@ def get_ring_patch(inner_radius, outer_radius, opacity, inclination, tilt,
     Parameters
     ----------
     inner_radius : float
-        the inner radius of the ring [R*]
+        The inner radius of the ring [R*].
     outer_radius : float
-        the outer radius of the ring [R*]
+        The outer radius of the ring [R*].
     opacity : float
-        the opacity of the ring [-]
+        The opacity of the ring [-].
     inclination : float
-        the inclination of the ring [deg]
+        The inclination of the ring [deg].
     tilt : float
-        tilt of the rings, the angle between the path of orbital motion and
-        the semi-major axis of the projected ellipse [deg]
+        Tilt of the rings, the angle between the path of orbital motion and
+        the semi-major axis of the projected ellipse [deg].
     impact_parameter : float
-        impact parameter between the centre of the rings w.r.t. the centre of 
-        the star [R*]
+        Impact parameter between the centre of the rings w.r.t. the centre of 
+        the star [R*].
     dt : float
-        this is a delta time parameter that can be used to shift the light
+        This is a delta time parameter that can be used to shift the light
         curve left or right in time space [day]. Note here that as this has no
+        effect on the shape it can be different from the actual dt value.
     facecolor : str
-        the color of the ring patch [default = 'black']
+        The color of the ring patch [default = 'black'].
     
     Returns
     -------
     ring_patch : matplotlib.patch
-        patch of the ring with input parameters
+        Patch of the ring with input parameters.
 
     Notes
     -----
@@ -529,32 +530,32 @@ def get_ringsystem_patches(planet_radius, inner_radii, outer_radii, opacities,
     Parameters
     ----------
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     inner_radii : array_like (1-D)
-        inner dimensions of the rings [R*]
+        Inner dimensions of the rings [R*].
     outer_radii : array_like (1-D)
-        outer dimensions of the rings [R*]
+        Outer dimensions of the rings [R*].
     opacities : array_like (1-D)
-        opacities of each ring [-]
+        Opacities of each ring [-].
     inclination : float
-        inclination of the ring system [deg]
+        Inclination of the ring system [deg].
     tilt : float
-        tilt of the rings, the angle between the path of orbital motion and
-        the semi-major axis of the projected ellipse [deg]
+        Tilt of the rings, the angle between the path of orbital motion and
+        the semi-major axis of the projected ellipse [deg].
     impact_parameter : float
-        impact parameter between the centre of the rings w.r.t. the centre of 
-        the star [R*]
+        Impact parameter between the centre of the rings w.r.t. the centre of 
+        the star [R*].
     dt : float
-        this is a delta time parameter that can be used to shift the light
-        curve left or right in time space [day]
+        This is a delta time parameter that can be used to shift the light
+        curve left or right in time space [day].
     facecolor : str
-        the color of the ring patches [default = 'black']
+        The color of the ring patches [default = 'black'].
     
     Returns
     -------
     ringsystem_patches : list of matplotlib.patch
-        list containing all the ring patches that make up the ring system
-        described by the input parameters and a circular patch for the planet
+        List containing all the ring patches that make up the ring system
+        described by the input parameters and a circular patch for the planet.
 
     Notes
     -----
@@ -585,13 +586,12 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=None,
     Parameters
     ----------
     time : array_like (1-D)
-        time data for the light curve [day]
+        Time data for the light curve [day].
     lightcurve : array_like (1-D)
-        normalised flux data for the light curve [L*]
-        [L*]
+        Normalised flux data for the light curve [L*].
     lightcurve_components : list of array_like (1-D)
-        list containing the lightcurves produced by each of the components of
-        the companion (planet + rings/disks) [L*/day]
+        List containing the lightcurves produced by each of the components of
+        the companion (planet + rings/disks) [L*/day].
     slope_lines : array_like (3-D)
         x and y coordinates of a line centred at (slope_times, lightcurve @
         slope_times) with input length. the dimensions are as follows: the
@@ -599,19 +599,19 @@ def plot_lightcurve(time, lightcurve, lightcurve_components, slope_lines=None,
         the x or the y points, with the 2nd dim being the actual points. This
         allows one to loop over the slopes in the 0th dimension.
     components : bool
-        determines whether or not the lightcurves of the companion components
-        are plotted [default = True]
+        Determines whether or not the lightcurves of the companion components
+        are plotted [default = True].
     xlim : tuple
-        x-limits of the plot
+        x-limits of the plot.
     ylim : tuple
-        y-limits of the plot
+        y-limits of the plot.
     ax : matplotlib.axes()
-        potentially contains an axes object to plot the light curve on to
+        Potentially contains an axes object to plot the light curve on to.
     
     Returns
     -------
     ax : matplotlib.axes()
-        contains the axes with the light curve plot
+        Contains the axes with the light curve plot.
     '''
     # check slope_lines
     if isinstance(slope_lines, type(None)):
@@ -652,19 +652,19 @@ def plot_ringsystem(ringsystem_patches, xlim=None, ylim=None, ax=None):
     Parameters
     ----------
     ringsystem_patches : list of matplotlib.patch
-        list containing all the ring patches that make up the ring system
+        List containing all the ring patches that make up the ring system
         described by the input parameters and a circular patch for the planet.
     xlim : tuple
-        x-limits of the plot
+        x-limits of the plot.
     ylim : tuple
-        y-limits of the plot
+        y-limits of the plot.
     ax : matplotlib.axes()
-        potentially contains an axes object to plot the light curve on to
+        Potentially contains an axes object to plot the light curve on to.
     
     Returns
     -------
     ax : matplotlib.axes()
-        contains the axes with the ringsystem cartoon
+        Contains the axes with the ringsystem cartoon.
     '''
     # get stellar patch
     star = Circle((0, 0), 1, facecolor='r')
@@ -693,20 +693,20 @@ def plot_combined(ringsystem_params, lightcurve_params, savename='test.png',
     Parameters
     ----------
     ringsystem_params : tuple
-        contains all the input parameters for plot_ringsystem(), which are
+        Contains all the input parameters for plot_ringsystem(), which are
         time, lightcurve, lightcurve_components, slope_lines=[], 
         components=True, xlim=None, ylim=None, ax=None, where ax should be
-        ignored
+        ignored.
     lightcurve_params : tuple
-        contains all the input parameters for plot_lightcurve(), which are
+        Contains all the input parameters for plot_lightcurve(), which are
         ringsystem_patches, xlim=None, ylim=None, ax=None, where ax should
-        be ignored
+        be ignored.
     savename : str
-        name of the file to be saved [default = 'test.png']
+        Name of the file to be saved [default = 'test.png'].
     figsize : tuple
-        size of the plot [default = (12, 10)]
+        Size of the plot [default = (12, 10)].
     title : str
-        title of the figure [default = '']
+        Title of the figure [default = ''].
     
     Returns
     -------
@@ -736,6 +736,7 @@ if __name__ == "__main__":
     # import extra modules for demo
     from matplotlib.patches import Rectangle
     # start demos
+    print('')
     print('========================================================')
     print('ALL THE METHODS IN SIMULATE_LIGHTCURVE.PY WILL BE DEMOED')
     print('========================================================')
