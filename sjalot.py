@@ -101,7 +101,8 @@ def determine_fx(te, dx, dy, fy):
     '''
     # we find fx for fy != 0
     z1 = fy**2 / (fy**2 - 1)
-    z2 = (te/2)**2 / dy[:, None]**2
+    # prevent divide by 0 error
+    z2 = (te/2)**2 / dy[:,None]**2
     z  = z1 * z2
     fx = np.sqrt(z / (1 + z))
     # we replace the nans with 1's as these come from fy**2 - 1 (1-1) = 0
@@ -110,6 +111,53 @@ def determine_fx(te, dx, dy, fy):
     origin = (dy[:, None] == 0) * (dx[None, :] == 0)
     fx[origin] = 1
     return fx
+
+def determine_fx(te, dx, dy, fy):
+    '''
+    This function is used to determine the proportionality factor in x given a
+    proportionality factor in y. After determining the smallest circle centred
+    at (0, dy) that passes through the eclipse points +-(te/2, 0), and this 
+    circle is then either stretched or compressed in the y direction  with fy,
+    this transformation in the y direction must be compensated by a respective
+    compression or stretching of the new ellipse in the x direction (fx).
+
+    Parameters
+    ----------
+    te : float
+        duration of the eclipse [day]
+    dx : array_like (1-D)
+        contains the x coordinate of ellipse centres [day]
+    dy : array_like (1-D)
+        contains the y coordinate of ellipse centres [day]
+    fy : array_like (2-D)
+        contains the original y proportionality factor for the ellipse
+
+    Returns
+    -------
+    fx : array_like (2-D)
+        contains the original x proportionality factor for the ellipse
+    '''
+
+    if fy == 1:
+        fx = np.ones((len(dy), len(dx)))
+    else:
+        # define fx with helper variables
+        z1 = fy**2 / (fy**2 - 1)
+        # preventing divide by 0 error for z2
+        z2 =  np.zeros_like(dy)
+        z2[dy!=0] = (te/2)**2 / dy[dy!=0]**2
+        z  = (z1 * z2) / (z1 * z2 + 1)
+        # preventing complex root issues
+        fx = np.sqrt(z, where=(z>=0))
+        fx[z<0] = np.nan
+        # extending fx to 2D array
+        fx = np.repeat(fx[:, None], len(dx), 1)
+        # for point (dx, dy) = (0, 0) we know that fx = 1
+        origin = (dy[:, None] == 0) * (dx[None, :] == 0)
+        fx[origin] = 1
+    # extending fy to 2D array
+    fy = fy * np.ones((len(dy), len(dx)))
+    return fx, fy
 
 def shear_ellipse_point(Rmin, s, fx, fy, theta):
     '''
@@ -226,12 +274,14 @@ def ellipse_parameters(Rmin, s, fx, fy):
     R2 = np.hypot(x2, y2)
     a = np.maximum(R1, R2)
     b = np.minimum(R1, R2)
-    # determine the inclination
-    inclination = np.arccos(b / a)
+    # determine the inclination avoiding divide by 0/inf/nan
+    inclination = np.nan * np.ones_like(a)
+    mask = (~np.isnan(a)) * (~np.isnan(b))
+    inclination[mask] = np.arccos(b[mask] / a[mask])
     # determine the tilt
     tilt = np.arctan2(y1, x1) # assuming R1 > R2
-    tilt_mask = R2 > R1 # find where above is not true
-    tilt = tilt + tilt_mask * np.pi / 2 # at ^ locations add np.pi/2
+    tilt_mask = R2[mask] > R1[mask] # find where above is not true
+    tilt[mask] = tilt[mask] + tilt_mask * np.pi / 2 # at ^ locations add np.pi/2
     return a, b, np.rad2deg(tilt), np.rad2deg(inclination)
 
 def ellipse_slope(x, dx, dy, s, fx, fy):
@@ -266,7 +316,9 @@ def ellipse_slope(x, dx, dy, s, fx, fy):
     # get the slopes
     top = -s * fy**2 * Y - fy**2 * X
     bot = (s**2 * fy**2 + fx**2) * Y + s * fy**2 * X
-    slope = top/bot
+    # prevent divide by 0 error
+    slope = np.nan * np.ones_like(s)
+    slope[bot!=0] = top[bot!=0]/bot[bot!=0]
     return slope
 
 def slope_to_gradient(slope):
@@ -339,7 +391,7 @@ def fill_quadrants(prop, is_tilt=False):
     full_prop = np.delete(full_prop, nx, axis=1)
     return full_prop
 
-def mask_parameters(a, b, tilt, inclination, gradients, mask):
+def mask_parameters_old(a, b, tilt, inclination, gradients, mask_arr, operator, value):
     '''
     This function applies a mask to the semi-major axis, the semi-minor axis,
     the tilt, the inclination and the gradients.
@@ -383,6 +435,14 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
         they should be between (-te/2, 0) and (te/2, 0) with the masked
         elements converted to nan's.
     '''
+    # generating mask
+    mask = np.ones_like(a).astype(np.bool)
+    # select values with numbers
+    mask[np.isnan(a)] = False
+    # apply condition to numeral values
+    mask[operator(mask_arr[mask], value)] = False
+    # flip for inserting nans
+    mask = ~mask
     # applying the mask to each parameter
     a[mask] = np.nan
     b[mask] = np.nan
@@ -391,6 +451,75 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask):
     for k in range(len(gradients)):
         gradients[k][mask] = np.nan
     return a, b, tilt, inclination, gradients
+
+def mask_parameters(a, b, tilt, inclination, gradients, mask_arr, operator, value):
+    '''
+    This function applies a mask to the semi-major axis, the semi-minor axis,
+    the tilt, the inclination and the gradients.
+
+    Parameters
+    ----------
+    a : array_like (2-D)
+        semi-major axes of the ellipses investigated [day]
+    b : array_like (2-D)
+        semi-minor axes of the ellipses investigated [day]
+    tilt : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis. [deg]
+    inclination : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis. [deg]
+    gradients : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        note that the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0)
+    mask_arr : array_like (2-D)
+        array on which to evaluate a condition (e.g. a > Rmax, where a is the
+        mask_arr, > is the operator, Rmax is the value)
+    operator : function
+        should be a numpy comparison function like np.less, np.less_equal,
+        np.greater, np.greater_equal, np.equal, np.not_equal...
+    value : float
+        value for the comparison made for the mask (e.g. a > Rmax, where a is
+        the mask_arr, > is the operator, Rmax is the value)
+
+    Returns
+    -------
+    a : array_like (2-D)
+        semi-major axes of the ellipses investigated with the masked elements
+        converted to nan's
+    b : array_like (2-D)
+        semi-minor axes of the ellipses investigated with the masked elements
+        converted to nan's
+    tilt : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis with the masked elements converted
+        to nan's. [deg]
+    inclination : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis with the masked elements
+        converted to nan's. [deg]
+    gradients : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0) with the masked
+        elements converted to nan's.
+    '''
+    # generating mask
+    mask = np.zeros_like(a).astype(np.bool)
+    # determine where to apply condition (non-nans)
+    value_mask = ~np.isnan(a)
+    # for non nan_mask values we want to evalute the condition 
+    mask[value_mask] = operator(mask_arr[value_mask], value)
+    # applying the mask to each parameter
+    a[mask] = np.nan
+    b[mask] = np.nan
+    tilt[mask] = np.nan
+    inclination[mask] = np.nan
+    for k in range(len(gradients)):
+        gradients[k][mask] = np.nan
+    return a, b, tilt, inclination, gradients
+
 
 def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
     '''
@@ -436,11 +565,14 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
     # creating grids / phase space
     dy = np.linspace(0, ymax, ny)
     dx = np.linspace(0, xmax, nx)
-    # determining sub-parameters
-    Fy = fy * np.ones((ny, nx))
-    Fx = determine_fx(te, dx, dy, Fy)
-    s  = -dx[None, :] / dy[:, None]
-    s[np.isnan(s)] = 0 # correct (dx, dy) = (0, 0)
+    # determining stretch-parameters
+    Fx, Fy = determine_fx(te, dx, dy, fy)
+    # determine shear avoid divide by 0 errors
+    s = np.nan * np.ones((len(dy), len(dy)))
+    s[dy!=0, :] = -dx[None, :] / dy[dy!=0][:, None]
+    origin = (dy[:, None] == 0) * (dx[None, :] == 0)
+    s[origin] = 0
+    #s[np.isnan(s)] = 0 # correct (dx, dy) = (0, 0)
     Rmin = np.hypot(te/2, dy)
     # investigate phase space
     a, b, tilt, inclination = ellipse_parameters(Rmin, s, Fx, Fy)
@@ -453,19 +585,22 @@ def investigate_ellipses(te, xmax, ymax, fy=1, measured_xs=None, nx=50, ny=50):
     if isinstance(measured_xs, type(None)):
         measured_xs = []
     n_measured = len(measured_xs)
-    # if no measured points then gradients = None
-    if n_measured == 0:
-        gradients = None
-    # otherwise create an array and fill with the slopes
-    else:
+    # define gradients array
+    gradients = np.zeros((n_measured, 2*ny-1, 2*nx-1))
+    # if there are measured points determine the gradients
+    if n_measured != 0:
         gradients = np.zeros((n_measured, 2*ny-1, 2*nx-1))
-        # get full sub-parameters
+        # get full stretch-parameters
         DX = np.linspace(-xmax, xmax, 2 * nx - 1)
         DY = np.linspace(-ymax, ymax, 2 * ny - 1)
-        S  = -DX[None, :] / DY[:, None]
-        S[np.isnan(S)] = 0
-        FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
-        FX = determine_fx(te, DX, DY, FY)
+        # get full shear parameters avoiding divide by 0 errors
+        S = np.nan * np.ones((len(DY), len(DX)))
+        S[DY!=0, :] = -DX[None, :] / DY[DY!=0][:, None]
+        ORIGIN = (DY[:, None] == 0) * (DX[None, :] == 0)
+        S[ORIGIN]  = 0 #-DX[None, :] / DY[:, None]
+        #S[np.isnan(S)] = 0
+        #FY = fy * np.ones((2 * ny - 1, 2 * nx - 1))
+        FX, FY = determine_fx(te, DX, DY, fy)
         for k, measured_x in enumerate(measured_xs):
             slope = ellipse_slope(measured_x, DX, DY, S, FX, FY)
             gradients[k] = slope_to_gradient(slope)
@@ -519,7 +654,7 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
     '''
     # determine fy extent
     fy_max = 2 * Rmax / te
-    fys = np.arange(0, fy_max + dfy, dfy)
+    fys = np.arange(dfy, fy_max + dfy, dfy)
     nfy = len(fys)
     # extract measured times and gradients
     if isinstance(measured, type(None)):
@@ -551,12 +686,12 @@ def full_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=None):
         ic[:, :, k] = i
         gc[:, :, :, k] = g
     # remove all solutions where ac == 0
-    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac==0)
+    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac, np.equal, 0)
     # remove all solutions where ac > Rmax
-    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac>Rmax)
+    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac, np.greater, Rmax)
     # per measured gradient remove all solutions where gc[k] < measured[k]
     for k, gradient in enumerate(measured_gradients):
-        ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, gc[k]<gradient)
+        ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, gc[k], np.less, gradient)
     return ac, bc, tc, ic, gc
 
 def grid_to_parameters(a_cube, tilt_cube, inclination_cube, xmax, ymax):
@@ -710,12 +845,9 @@ if __name__ == "__main__":
     dy = np.array([0.7])
     dx = np.array([0.0])
     Rmin = np.hypot(te/2, dy)
-    fy0 = np.array([[1]])
-    fx0 = determine_fx(te, dx, dy, fy0)
-    fy1 = np.array([[2]])
-    fx1 = determine_fx(te, dx, dy, fy1)
-    fy2 = np.array([[0.85]])
-    fx2 = determine_fx(te, dx, dy, fy2)
+    fx0, fy0 = determine_fx(te, dx, dy, 1)
+    fx1, fy1 = determine_fx(te, dx, dy, 2)
+    fx2, fy2 = determine_fx(te, dx, dy, 0.85)
     print('     te = %.2f' % te)
     print('     dx[0] = %.2f' % dx[0])
     print('     dy[0] = %.2f' % dy[0])
@@ -808,7 +940,7 @@ if __name__ == "__main__":
     dx3 = np.array([0.3])
     s3 = - dx3[None, :] / dy[:, None]
     s3[np.isnan(s3)] == 0
-    fx3 = determine_fx(te, dx3, dy, fy0)
+    fx3, fy3 = determine_fx(te, dx3, dy, 1)
     print('     dx[0] = %.2f' % dx3[0])
     print('     s3[0,0] = %.2f' % s3[0, 0])
     # list dependencies 
@@ -817,7 +949,7 @@ if __name__ == "__main__":
     # prepare demo
     print('  c. running sjalot.shear_ellipse_point() demo')
     # find sheared ellipse
-    xs, ys = shear_ellipse_point(Rmin, s3, fx3, fy0, theta)
+    xs, ys = shear_ellipse_point(Rmin, s3, fx3, fy3, theta)
     # prepare figure
     fig = plt.figure(figsize=(8, 9))
     fig.suptitle('Demo: sjalot.shear_ellipse_point() (fy = 1, fx = 1)')
@@ -876,10 +1008,10 @@ if __name__ == "__main__":
     print('  c. running sjalot.theta_max_min() demo')
     # determine angle and points
     theta_ab = theta_max_min(s3, fx0, fy0)
-    xa, ya = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab)
-    xb, yb = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab + np.pi/2)
-    xa2, ya2 = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab + np.pi)
-    xb2, yb2 = shear_ellipse_point(Rmin, s3, fx3, fy0, theta_ab - np.pi/2)
+    xa, ya = shear_ellipse_point(Rmin, s3, fx3, fy3, theta_ab)
+    xb, yb = shear_ellipse_point(Rmin, s3, fx3, fy3, theta_ab + np.pi/2)
+    xa2, ya2 = shear_ellipse_point(Rmin, s3, fx3, fy3, theta_ab + np.pi)
+    xb2, yb2 = shear_ellipse_point(Rmin, s3, fx3, fy3, theta_ab - np.pi/2)
     # prepare figure
     fig = plt.figure(figsize=(8, 6))
     plt.title('Demo: sjalot.theta_max_min()')
@@ -924,7 +1056,7 @@ if __name__ == "__main__":
     print('      - helper: sjalot.determine_fx()')
     # prepare demo
     print('  c. running sjalot.ellipse_parameters() demo')
-    a, b, tilt, inclination = ellipse_parameters(Rmin, s3, fx3, fy0)
+    a, b, tilt, inclination = ellipse_parameters(Rmin, s3, fx3, fy3)
     print('     > ellipse_parameters()')
     print('     >   semi-major axis = %.2f [day]' % a[0, 0])
     print('     >   semi-minor axis = %.2f [day]' % b[0, 0])
@@ -1008,11 +1140,11 @@ if __name__ == "__main__":
     slope_lines = get_slope_lines(time, lightcurve, slope_times, slopes, 0.1)
     # draw sub-ellipses
     Rmin00 = np.hypot(x00/fx3[0, 0], dy/fy0[0, 0])
-    xs00, ys00 = shear_ellipse_point(Rmin00, s3, fx3, fy0, theta)
+    xs00, ys00 = shear_ellipse_point(Rmin00, s3, fx3, fy3, theta)
     Rmin01 = np.hypot(x01/fx3[0, 0], dy/fy0[0, 0])
-    xs01, ys01 = shear_ellipse_point(Rmin01, s3, fx3, fy0, theta)
+    xs01, ys01 = shear_ellipse_point(Rmin01, s3, fx3, fy3, theta)
     Rmin02 = np.hypot(x02/fx3[0, 0], dy/fy0[0, 0])
-    xs02, ys02 = shear_ellipse_point(Rmin02, s3, fx3, fy0, theta)
+    xs02, ys02 = shear_ellipse_point(Rmin02, s3, fx3, fy3, theta)
     # prepare figure
     fig = plt.figure(figsize=(8, 6))
     fig.suptitle('Demo: sjalot.ellipse_slope()')
@@ -1077,10 +1209,11 @@ if __name__ == "__main__":
     DXF = np.linspace(-50, 50, 201)
     DYF = np.linspace(-50, 50, 201)
     RMINF = np.hypot(te/2, DYF)
-    SF = -DXF[None, :] / DYF[:, None]
-    SF[np.isnan(SF)] = 0
-    FYF = 1.2 * np.ones_like(SF) 
-    FXF = determine_fx(te, DXF, DYF, FYF)
+    SF = np.nan * np.ones((len(DYF), len(DXF)))
+    SF[DYF!=0, :] = -DXF[None, :] / DYF[DYF!=0, None]
+    ORIGIN = (DYF[:, None] == 0) * (DXF[None, :] == 0)
+    SF[ORIGIN] = 0
+    FXF, FYF = determine_fx(te, DXF, DYF, fy)
     A, B, T, I = ellipse_parameters(RMINF, SF, FXF, FYF)
     G = []
     for measured_x in measured_xs:
@@ -1092,7 +1225,7 @@ if __name__ == "__main__":
     ff_params = (A, B, T, I, G[0])
     lbls = ['semi-major axis', 'semi-minor axis', 'tilt', 'inclination', 
             'gradient']
-    print('> validating sjalot.fill_quadrants()')
+    print('     > validating sjalot.fill_quadrants()')
     for iep, ffp, lbl in zip(ie_params, ff_params, lbls):
         fig, axes = plt.subplots(1, 2, figsize=(12, 6))
         fig.suptitle('Demo: sjalot.investigate_ellipses() -- %s' % lbl)
@@ -1115,10 +1248,11 @@ if __name__ == "__main__":
         ax1.set_ylabel('y [day]')
         fig.colorbar(im1, ax=ax1)
         diff = np.nansum(np.abs(iep-ffp))
-        print('>  %s total difference: %.8f' % (lbl, diff))
+        print('     >   %s total difference: %.8f' % (lbl, diff))
         plt.show()
+    print('\n')
     ### FULL_INVESTIGATION() ###
-    print('7. sjalot.full_investigation()')
+    print('8. sjalot.full_investigation()')
     print('------------------------------')
     print('This function does a full scale version of investigate_ellipses.')
     print('The major difference is that it takes into consideration the')
