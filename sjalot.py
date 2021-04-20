@@ -674,6 +674,335 @@ def grid_to_parameters(a_cube, tilt_cube, inclination_cube, xmax, ymax):
 
 
 ###############################################################################
+############################## SUB-GRID METHODS ###############################
+###############################################################################
+
+def fill_parameter_templates(template_shape, a, b, tilt, inclination,
+                             gradients):
+    '''
+    This function creates a nan array with the template shape and fills it in
+    with the parameter arrays (a, b, tilt, inclination, gradients) in the
+    appropriate fashion
+
+    Parameters
+    ----------
+    template_shape : tuple
+        size of the original (dx, dy) grid for all the parameters
+    a : array_like (2-D)
+        semi-major axes of the ellipses investigated
+    b : array_like (2-D)
+        semi-minor axes of the ellipses investigated
+    tilt : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis. [deg]
+    inclination : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis. [deg]
+    gradients : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0).
+    
+    Returns
+    -------
+    a_filled : array_like (2-D)
+        semi-major axes of the ellipses investigated in the template size
+    b_filled : array_like (2-D)
+        semi-minor axes of the ellipses investigated in the template size
+        converted to nan's
+    tilt_filled : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis in the template size. [deg]
+    inclination_filled : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis in the template size.
+        [deg]
+    gradients_filled : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0) in the template size.
+    '''
+    # determine shape parameters
+    NY, NX = template_shape
+    nm, ny, nx = gradients.shape
+    # group 2-D parameters
+    params = [a, b, tilt, inclination]
+    new_params = []
+    for param in params:
+        template = np.nan * np.ones(template_shape)
+        template[NY-ny : NY+ny-1, NX-nx : NX+nx-1] = param
+        new_params.append(template)
+    # extract parameters
+    a_filled, b_filled, tilt_filled, inclination_filled = new_params
+    # determine gradients
+    gradients_filled = np.nan * np.ones((nm,) + template_shape)
+    for k, gradient in enumerate(gradients):
+        gradients_filled[k, NY-ny : NY+ny-1, NX-nx : NX+nx-1] = gradient
+    return a_filled, b_filled, tilt_filled, inclination_filled, gradients_filled
+
+def concatenate_parameters(a_cube, b_cube, tilt_cube, inclination_cube,
+                           gradients_cube, a, b, tilt, inclination, gradients,
+                           front=True):
+    '''
+    This function concatenates a parameter to the front or back of the
+    corresponding parameter cube (dependent on front input)
+
+    Parameters
+    ----------
+    a_cube : array_like (3-D)
+        cube of a (see below)
+    b_cube : array_like (3-D)
+        cube of b (see below)
+    tilt_cube : array_like(3-D)
+        cube of tilt (see below)
+    inclination_cube : array_like (3-D)
+        cube of inclination (see below)
+    gradients_cube : array_like (4-D)
+        cube per measured gradient (see below)
+    a : array_like (2-D)
+        semi-major axes of the ellipses investigated
+    b : array_like (2-D)
+        semi-minor axes of the ellipses investigated
+    tilt : array_like (2-D)
+        tilt angles of the ellipses investigated. This is the angle of the 
+        semi-major axis w.r.t. the x-axis. [deg]
+    inclination : array_like (2-D)
+        inclination angles of the ellipses investigated. Inclination is based
+        on the ratio of semi-minor to semi-major axis. [deg]
+    gradients : array_like (3-D)
+        gradients of the ellipse investigated at each of the measured x values.
+        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
+        they should be between (-te/2, 0) and (te/2, 0).
+    front : boolean
+        if True then the parameter is concatenated to the front of the cube
+        (this is intended for fy < 1), if False then parameter is concatenated
+        to the back of the cube (this is intended for fy > 1) [default=True].
+
+    Returns
+    -------
+    a_new : array_like (3-D)
+        cube of a (see below), with input a concatenated
+    b_new : array_like (3-D)
+        cube of b (see below), with input b concatenated
+    tilt_new : array_like(3-D)
+        cube of tilt (see below), with input tilt concatenated
+    inclination_new : array_like (3-D)
+        cube of inclination (see below), with input inclination concatenated
+    gradients_new : array_like (4-D)
+        cube per measured gradient (see below), with input gradients 
+        concatenated
+    '''
+    # make lists for 2-D params (3-D cubes)
+    cubes = [a_cube, b_cube, tilt_cube, inclination_cube]
+    params = [a, b, tilt, inclination]
+    new_cubes = []
+    for cube, param in zip(cubes, params):
+        if front == True:
+            new_cube = np.concatenate((param[:, :, None], cube), 2)
+        else:
+            new_cube = np.concatenate((cube, param[:, :, None]), 2)
+        new_cubes.append(new_cube)
+    a_new, b_new, tilt_new, inclination_new = new_cubes
+    # concatenate gradients
+    if front == True:
+        gradients_new = np.concatenate((gradients[:, :, :, None],
+                                        gradients_cube), 3)
+    else:
+        gradients_new = np.concatenate((gradients_cube,
+                                        gradients[:, :, :, None]), 3)
+    return a_new, b_new, tilt_new, inclination_new, gradients_new
+
+def determine_new_grid(parameter, xmax, ymax):
+    '''
+    This function determines the new grid on which to investigate ellipses. It
+    does this by looking at the input parameter, determining, which rows and
+    columns are completely filled with nan's and then giving a new number of
+    grid points with the new xmax and ymax so that the next grid to investigate
+    is a subset of the original grid
+
+    Parameters
+    ----------
+    parameter : array_like (2-D)
+        a 2-D parameter grid, typically semi-major axis is used, but there is
+        no real reason for this (except that since most of the subsets are
+        created from a semi-major axis mask)
+    xmax : float
+        largest extent of dx in the input grid of parameter
+    ymax : float
+        largest extent of dy in the input grid of parameter
+    
+    Returns
+    -------
+    xmax_new : float
+        largest extent of dx for which input parameter grid contains at least
+        one number
+    ymax_new : float
+        largest extent of dy for which input parameter grid contains at least
+        one number
+    nx_new : int
+        new number of grid points based on xmax_new
+    ny_new : int
+        new number of grid points based on ymax_new
+    '''
+    # detemine grid size
+    ny, nx = parameter.shape
+    nx = int((nx + 1) / 2)
+    ny = int((ny + 1) / 2)
+    # detemine the nan values
+    index_image = ~np.isnan(parameter[ny-1:, nx-1:])
+    # determine upto which row and column index, rows/columns contain a number
+    x_index = np.argmax(np.nansum(index_image, 0) == 0) - 1
+    y_index = np.argmax(np.nansum(index_image, 1) == 0) - 1
+    # determine new extent of (dx, dy)
+    xmax_new = np.linspace(0, xmax, nx)[x_index]
+    ymax_new = np.linspace(0, ymax, ny)[y_index]
+    # determine the new number of grid points
+    nx_new = x_index + 1
+    ny_new = y_index + 1
+    if nx_new == 0:
+        nx_new = nx
+    if ny_new == 0:
+        ny_new = ny
+    return xmax_new, ymax_new, nx_new, ny_new
+
+def subgrid_investigation(te, xmax, ymax, dfy, Rmax, nx=50, ny=50, measured=[]):
+    '''
+    This function investigates the full parameter space (dx, dy, fy) based
+    on a grid size (nx, ny, dfy) dependent on the eclipse geometry (te) and
+    the maximum size of the disk (Rmax). It also determines the gradients of
+    the theoretical disks at the measured times
+
+    Parameters
+    ----------
+    te : float
+        width of the eclipse [time or space]
+    xmax : float
+        contains the maximum value of dx
+    ymax : float
+        contains the maximum value of dy
+    dfy : float
+        contains the step size in fy for the original y proportionality factor
+        for the ellipse
+    Rmax : float
+        the maximum size of the disk (used to apply a mask)
+    nx : int
+        number of gridpoints in the x direction
+    ny : int
+        number of gridpoints in the y direction
+    measured : list of tuples
+        contains the measured gradients and respective times as (time, gradient)
+
+    Return
+    -------
+    ac : array_like (3-D)
+        cube of semi-major axes of the ellipses investigated
+    bc : array_like (3-D)
+        cube of semi-minor axes of the ellipses investigated
+    tc : array_like (3-D)
+        cube of tilt angles of the ellipses investigated. This is the angle of
+        the semi-major axis w.r.t. the x-axis. [deg]
+    ic : array_like (3-D)
+        cube of inclination angles of the ellipses investigated. Inclination is
+        based on the ratio of semi-minor to semi-major axis. [deg]
+    gc : array_like (4-D)
+        cube of gradients of the ellipse investigated at each of the measured x
+        values. Note thtat the measured x values are w.r.t. the eclipse midpoint
+        i.e. they should be between (-te/2, 0) and (te/2, 0).
+    '''
+    # determine template shapes
+    template_shape = (2 * ny - 1, 2 * nx - 1)
+    nm = len(measured_xs)
+    # extract measured times and gradients
+    measured_times = []
+    measured_gradients = []
+    for m in measured:
+        time, gradient = m
+        measured_times.append(time)
+        measured_gradients.append(gradient)
+    # intialise parameter (a, b, t, i, g), (c)ubes
+    ac = np.zeros(template_shape + (0,))
+    bc = np.zeros(template_shape + (0,))
+    tc = np.zeros(template_shape + (0,))
+    ic = np.zeros(template_shape + (0,))
+    gc = np.zeros((nm,) + template_shape + (0,))
+    # start with fy = 1 (smallest possible disk)
+    fy = 1
+    print('attempting fy = %.2f' % fy)
+    # determine the ellipse (p)arameters
+    ap, bp, tp, ip, gp = investigate_ellipses(te, xmax, ymax, fy,
+                                              measured_times, nx, ny)
+    # (m)ask all values according to the maximum radius
+    am, bm, tm, im, gm = mask_parameters(ap, bp, tp, ip, gp, ap>Rmax)
+    ac, bc, tc, ic, gc = concatenate_parameters(ac, bc, tc, ic, gc, am, bm, tm,
+                                                im, gm, front=True)
+    # set while loop parameters
+    xmax_new = xmax
+    ymax_new = ymax
+    nx_new = nx
+    ny_new = ny
+    while (np.sum(np.isnan(ap)) != np.prod(ap.shape) - 1):
+        fy -= dfy # need to run a reasonable step size, based on how R changes with fy
+        print('attempting fy = %.2f' % fy)
+        print('shape is (%i, %i)\n' % (ny_new, nx_new))
+        # determine the (p)artial parameter space investigation based on the 
+        # fact that some rows and columns are no longer necessary to calculate
+        ap, bp, tp, ip, gp = investigate_ellipses(te, xmax_new, ymax_new, fy,
+                                                  measured_times, nx_new,
+                                                  ny_new)
+        # (m)ask all values according to the maximum radius
+        am, bm, tm, im, gm = mask_parameters(ap, bp, tp, ip, gp, ap>Rmax)
+        # determine new grid parameters
+        xmax_new, ymax_new, nx_new, ny_new = determine_new_grid(am, xmax_new,
+                                                                ymax_new)
+        # determine the (g)ood sized arrays
+        ag, bg, tg, ig, gg = fill_parameter_templates(template_shape, am, bm,
+                                                      tm, im, gm)
+        # concatenate to cubes
+        ac, bc, tc, ic, gc = concatenate_parameters(ac, bc, tc, ic, gc, ag, bg,
+                                                    tg, ig, gg, front=True)
+        # make sure you don't accidentally pass 0 (this has no meaning)
+        if fy < 0:
+            print('warning fy < 0')
+            break
+    # reset while
+    fy = 1
+    xmax_new = xmax
+    ymax_new = ymax
+    nx_new = nx
+    ny_new = ny
+    ap = ac[:, :, -1] # this is to ensure that the while loop runs select A where fy=1
+    # determine a fair way of stepping up (should be dependent on how R changes with +fy)
+    while (np.sum(np.isnan(ap)) != np.prod(ap.shape)):
+        fy += dfy # need to run a reasonable step size, based on how R changes with fy
+        print('attempting fy = %.2f' % fy)
+        print('shape is (%i, %i)\n' % (ny_new, nx_new))
+        # determine the (p)artial parameter space investigation based on the
+        # fact that some rows and columns are no longer necessary to calculate
+        ap, bp, tp, ip, gp = investigate_ellipses(te, xmax_new, ymax_new, fy,
+                                                  measured_times, nx_new,
+                                                  ny_new)
+        # (m)ask all values according to the maximum radius
+        am, bm, tm, im, gm = mask_parameters(ap, bp, tp, ip, gp, ap>Rmax)
+        # determine new grid parameters
+        xmax_new, ymax_new, nx_new, ny_new = determine_new_grid(am, xmax_new,
+                                                                ymax_new)
+        # determine the (g)ood sized arrays
+        ag, bg, tg, ig, gg = fill_parameter_templates(template_shape, am, bm,
+                                                      tm, im, gm)
+        # concatenate to cubes
+        ac, bc, tc, ic, gc = concatenate_parameters(ac, bc, tc, ic, gc, ag, bg,
+                                                    tg, ig, gg, front=False)
+    # remove all solutions where ac == 0
+    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac==0)
+    # remove all solutions where ac > Rmax
+    ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, ac>Rmax)
+    # per measured gradient remove all solutions where gc[k] < measured[k]
+    for k, gradient in enumerate(measured_gradients):
+        ac, bc, tc, ic, gc = mask_parameters(ac, bc, tc, ic, gc, gc[k]<gradient)
+    return ac, bc, tc, ic, gc
+
+
+###############################################################################
 ############################ VALIDATION FUNCTIONS #############################
 ###############################################################################
 
