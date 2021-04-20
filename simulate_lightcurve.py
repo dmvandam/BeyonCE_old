@@ -43,15 +43,6 @@ printed along with relevant plots to show the working of the functions in this
 module).
 '''
 
-###############################################################################
-##################################### TODO ####################################
-###############################################################################
-
-### pyPplusS - Error ###
-# /.../pyppluss/segment_models.py:452: RuntimeWarning: invalid value 
-# encountered in less todo_start = np.all(np.logical_or(splitr[:, 2:] < rcrit,
-# np.isnan(splitr[:, 2:])), -1)
-# circumvent or suggest fix for pyPplusS
 
 ###############################################################################
 ############################# IMPORT MAIN MODULES #############################
