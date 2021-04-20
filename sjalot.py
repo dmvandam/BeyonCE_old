@@ -112,7 +112,7 @@ def determine_fx(te, dx, dy, Fy):
         z2[dy!=0] = (te/2)**2 / dy[dy!=0]**2
         z  = (z1 * z2) / (z1 * z2 + 1)
         # preventing complex root issues
-        fx = np.sqrt(z, where=(z>=0))
+        fx = np.sqrt(z, where=(z >= 0))
         fx[z<0] = np.nan
         # extending fx to 2D array
         fx = np.repeat(fx[:, None], len(dx), 1)
@@ -355,67 +355,6 @@ def fill_quadrants(prop, is_tilt=False):
     full_prop = np.delete(full_prop, nx, axis=1)
     return full_prop
 
-def mask_parameters_old(a, b, tilt, inclination, gradients, mask_arr, operator, value):
-    '''
-    This function applies a mask to the semi-major axis, the semi-minor axis,
-    the tilt, the inclination and the gradients.
-
-    Parameters
-    ----------
-    a : array_like (2-D)
-        Semi-major axes of the ellipses investigated [day].
-    b : array_like (2-D)
-        Semi-minor axes of the ellipses investigated [day].
-    tilt : array_like (2-D)
-        Tilt angles of the ellipses investigated. This is the angle of the 
-        semi-major axis w.r.t. the x-axis [deg].
-    inclination : array_like (2-D)
-        Inclination angles of the ellipses investigated. Inclination is based
-        on the ratio of semi-minor to semi-major axis [deg].
-    gradients : array_like (3-D)
-        Gradients of the ellipse investigated at each of the measured x values.
-        note that the measured x values are w.r.t. the eclipse midpoint i.e.
-        they should be between (-te/2, 0) and (te/2, 0).
-
-    Returns
-    -------
-    a : array_like (2-D)
-        Semi-major axes of the ellipses investigated with the masked elements
-        converted to nan's [day].
-    b : array_like (2-D)
-        Semi-minor axes of the ellipses investigated with the masked elements
-        converted to nan's [day].
-    tilt : array_like (2-D)
-        Tilt angles of the ellipses investigated. This is the angle of the 
-        semi-major axis w.r.t. the x-axis with the masked elements converted
-        to nan's [deg].
-    inclination : array_like (2-D)
-        Inclination angles of the ellipses investigated. Inclination is based
-        on the ratio of semi-minor to semi-major axis with the masked elements
-        converted to nan's [deg].
-    gradients : array_like (3-D)
-        Gradients of the ellipse investigated at each of the measured x values.
-        note thtat the measured x values are w.r.t. the eclipse midpoint i.e.
-        they should be between (-te/2, 0) and (te/2, 0) with the masked
-        elements converted to nan's.
-    '''
-    # generating mask
-    mask = np.ones_like(a).astype(np.bool)
-    # select values with numbers
-    mask[np.isnan(a)] = False
-    # apply condition to numeral values
-    mask[operator(mask_arr[mask], value)] = False
-    # flip for inserting nans
-    mask = ~mask
-    # applying the mask to each parameter
-    a[mask] = np.nan
-    b[mask] = np.nan
-    tilt[mask] = np.nan
-    inclination[mask] = np.nan
-    for k in range(len(gradients)):
-        gradients[k][mask] = np.nan
-    return a, b, tilt, inclination, gradients
-
 def mask_parameters(a, b, tilt, inclination, gradients, mask_arr, operator, value):
     '''
     This function applies a mask to the semi-major axis, the semi-minor axis,
@@ -470,9 +409,9 @@ def mask_parameters(a, b, tilt, inclination, gradients, mask_arr, operator, valu
         elements converted to nan's.
     '''
     # generating mask
-    mask = np.zeros_like(a).astype(np.bool)
+    mask = np.zeros_like(mask_arr).astype(np.bool)
     # determine where to apply condition (non-nans)
-    value_mask = ~np.isnan(a)
+    value_mask = ~np.isnan(mask_arr)
     # for non nan_mask values we want to evalute the condition 
     mask[value_mask] = operator(mask_arr[value_mask], value)
     # applying the mask to each parameter
@@ -1321,6 +1260,6 @@ if __name__ == "__main__":
     print('     ymax = %.2f' % ymax)
     print('\n')
     print('=============================================')
-    print('ALL THE METHODS IN SJALOT.PY HAVE BEEN DEMOED'
+    print('ALL THE METHODS IN SJALOT.PY HAVE BEEN DEMOED')
     print('=============================================')
     print('')
