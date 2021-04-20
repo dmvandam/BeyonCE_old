@@ -32,23 +32,23 @@ def divide_rings(max_radius, known_opacities, num_rings):
     Parameters
     ----------
     max_radius : float
-        size of the largest ring (i.e. the disk) [R*]
-    known_opacities : list of floats
-        list of opacities for rings (note that this does not need to be the 
+        Size of the largest ring (i.e. the disk) [R*].
+    known_opacities : array_like (1-D)
+        List of opacities for rings (note that this does not need to be the 
         same length as the number of rings, but it needs to be an integer
         multiple thereof... i.e. you can list 4 opacities and have 8 rings,
-        but not 7 rings
+        but not 6 rings.
     num_rings : int
-        number of rings to separate the disk into
+        Number of rings to separate the disk into.
 
     Returns
     -------
     inner_radii : array_like (1-D)
-        inner dimension of the rings [R*]
+        Inner dimension of the rings [R*].
     outer_radii : array_like (1-D)
-        outer dimension of the rings [R*]
+        Outer dimension of the rings [R*].
     opacities : array_like (1-D)
-        opacities of each ring [-]
+        Opacities of each ring [-].
     '''
     # calculate the ring edges
     ring_edges = np.linspace(0, 1, num_rings + 1) * max_radius
@@ -64,19 +64,19 @@ def divide_rings(max_radius, known_opacities, num_rings):
 def merge_ringlets(opacities, merge_fraction=0.05):
     '''
     This function merges ringlets that have similar opacities to form thicker
-    rings
+    rings.
     
     Parameters
     ----------
-    opacities : array of floats
-        opacities of each ringlet
+    opacities : array_like (1-D)
+        Opacities of each ringlet [-].
     merge_fraction : float
-        allowed standard deviation of the opacities
+        Allowed standard deviation of the opacities.
         
     Returns
     -------
     merged_opacities : array of floats
-        contains the actual opacities of each ring
+        Contains the actual opacities of each ring [-].
     '''
     # intialise lists for new rings
     merged_opacities = -np.ones(len(opacities))
@@ -100,7 +100,6 @@ def merge_ringlets(opacities, merge_fraction=0.05):
     merged_opacities[ind:] = np.mean(ringlet_opacities)
     return merged_opacities
 
-
 def compact_ringlets(inner_radii, outer_radii, merged_opacities):
     '''
     This function compacts the ringlets to rings for optimisation of the
@@ -108,21 +107,21 @@ def compact_ringlets(inner_radii, outer_radii, merged_opacities):
 
     Parameters
     ----------
-    inner_radii : array of floats
-        contains the inner ring edges for each ringlet
-    outer_radii : array of floats
-        contains the outer ring edges for each ringlet
-    merged_opacities : array of floats
-        contains the merged opacities of the ringlets
+    inner_radii : array_like (1-D)
+        Contains the inner ring edges for each ringlet [R*].
+    outer_radii : array_like (1-D)
+        Contains the outer ring edges for each ringlet [R*].
+    merged_opacities : array_like (1-D)
+        Contains the merged opacities of the ringlets [-].
 
     Returns
     -------
     compact_inner_radii : array of floats
-        compacted inner radii for rings (not ringlets)
+        Compacted inner radii for rings (not ringlets) [R*].
     compact_outer_radii : array of floats
-        compacted outer radii for rings (not ringlets)
+        Compacted outer radii for rings (not ringlets) [R*].
     compact_opacities : array of floats
-        compacted opacities for rings (not ringlets)
+        Compacted opacities for rings (not ringlets) [-].
     '''
     # extract the unique values, sorting and reconstruction indices
     unique_data = np.unique(merged_opacities, return_index=True,
@@ -142,20 +141,20 @@ def compact_ringlets(inner_radii, outer_radii, merged_opacities):
 def expand_ringlets(compact_opacities, unpack_indices):
     '''
     This function uses the unpack_indices to expand the compacted ringlets
-    back to their original size (useful for saving into an array)i
+    back to their original size (useful for saving into an array).
     
     Parameters
     ----------
-    compact_opacities : array of floats
-        compacted opacities for rings (not ringlets)
-    unpack_indices : array of ints
-        index array to expand compacted inner/outer radii and corresponding
-        opacities
+    compact_opacities : array_like (1-D)
+        Compacted opacities for rings (not ringlets) [-].
+    unpack_indices : array_like (1-D)
+        Index array to expand compacted inner/outer radii and corresponding
+        opacities.
 
     Returns
     -------
-    expanded_opacities : array of floats
-        contains the merged opacities of the ringlets
+    expanded_opacities : array_like (1-D)
+        Contains the merged opacities of the ringlets [-].
     '''
     # expand opacities using the unpack indices
     expanded_opacities = np.sort(compact_opacities)[unpack_indices]
@@ -165,29 +164,34 @@ def merge_rings(inner_radii, outer_radii, opacities, merge_fraction=0.05,
                 extend_first=True):
     '''
     This function merges ringlets that have similar opacities to form thicker
-    rings
+    rings.
     
     Parameters
     ----------
-    inner_radii : array of floats
-        contains the inner ring edges for each ring
-    outer_radii : array of floats
-        contains the outer ring edges for each ring
-    opacities : array of floats
-        opacities of each ring
+    inner_radii : array_like (1-D)
+        Contains the inner ring edges for each ring [R*].
+    outer_radii : array_like (1-D)
+        Contains the outer ring edges for each ring [R*].
+    opacities : array_like (1-D)
+        Opacities of each ring [-].
     merge_fraction : float
-        allowed standard deviation of the opacities
+        Allowed standard deviation of the opacities.
     extend_first : bool
-        this ensures that the first ring boundary 
+        If true then the first ring to transit the star is extended to the
+        planet. This is for two reasons: the first is that we could never
+        learn about rings before this one (as they do not transit the star)
+        and the second is that this could reduce the effect of a numerical
+        error during optimisation that causes a wiggle in the light curve.
+        If false then no ring extension takes place.
         
     Returns
     -------
-    new_inner_radii : array of floats
-        contains the actual inner ring edges for each ring
-    new_outer_radii : array of floats
-        contains the actual outer ring edges for each ring
-    new_opacities : array of floats
-        contains the actual opacities of each ring
+    new_inner_radii : array_like (1-D)
+        Contains the actual inner ring edges for each ring [R*].
+    new_outer_radii : array_like (1-D)
+        Contains the actual outer ring edges for each ring [R*].
+    new_opacities : array_like (1-D)
+        Contains the actual opacities of each ring [-].
     '''
     # intialise lists for new rings
     new_opacities = []
@@ -230,60 +234,63 @@ def optimise_opacities(time, lightcurve, planet_radius, inner_radii,
     Parameters
     ----------
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     lightcurve : array_like (1-D)
-        normalised flux data points at which the light curve is calculated [L*]
+        Normalised flux data points at which the light curve is calculated 
+        [L*].
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     inner_radii : array_like (1-D)
-        inner dimension of the rings [R*]
+        Inner dimension of the rings [R*].
     outer_radii : array_like (1-D)
-        outer dimension of the rings [R*]
+        Outer dimension of the rings [R*].
     opacities : array_like (1-D)
-        opacities of each ring [-]
+        Opacities of each ring [-].
     inclination : float
-        inclination of the ring system [deg]
+        Inclination of the ring system [deg].
     tilt : float
-        tilt of the rings, is the angle between the x-axis and the semi-major
-        axis of the projected ellipse [deg]
+        Tilt of the rings, is the angle between the x-axis and the semi-major
+        axis of the projected ellipse [deg].
     impact_parameter : float
-        impact parameter between the centre of the rings w.r.t. centre of the
-        star [R*]
+        Impact parameter between the centre of the rings w.r.t. centre of the
+        star [R*].
     dt : float
-        this is a delta time parameter that can be used to shift the lightcurve
-        left or right [days]
+        This is a delta time parameter that can be used to shift the light 
+        curve left or right [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u,  of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     extend_first : bool
-        if true then the first ring to transit the star is extended to the
-        planet. this is for two reasons, the first is that we could never
+        If true then the first ring to transit the star is extended to the
+        planet. This is for two reasons: the first is that we could never
         learn about rings before this one (as they do not transit the star)
         and the second is that this could reduce the effect of a numerical
         error during optimisation that causes a wiggle in the light curve.
-        if false then no ring extension takes place
+        If false then no ring extension takes place.
 
     Returns
     -------
-    optimal_opacities : array
-        optimised values of the opacity of each ring
+    optimal_opacities : array_like (1-D)
+        Optimised values of the opacity of each ring [-].
     chi2 : float
         chi2 value of the best fit model to the light curve with the given
-        ring radii parameters
+        ring radii parameters.
     '''
     # create optimal_opacities array
     optimal_opacities = np.zeros(len(inner_radii))
     # determine which rings must be optimised
     tilt_rad = np.deg2rad(tilt)
-    mask = np.abs(impact_parameter) - np.abs(outer_radii * np.sin(tilt_rad)) < 1
+    mask = np.abs(impact_parameter) - np.abs(outer_radii * np.sin(tilt_rad))
+             < 1
     # mask rings
     true_inner_radii = inner_radii[mask]
     true_outer_radii = outer_radii[mask]
     true_opacities   = opacities[mask]
-    print('optimise_opacities() is optimising %i ringlets' % len(true_opacities))
+    print('optimise_opacities() is optimising %i ringlets' 
+            % len(true_opacities))
     # extend first ring to centre of the planet
     if extend_first == True:
         true_inner_radii[0] = 1e-16
@@ -291,22 +298,22 @@ def optimise_opacities(time, lightcurve, planet_radius, inner_radii,
     def fixed_disk(time, *opacities):
         '''
         This function freezes all disk parameters except the relevant
-        opacities and sets the equation up such that curve_fit can
-        determine the optimal opacities
+        opacities and sets the equation up such that curve_fit can determine
+        the optimal opacities.
 
         Parameters
         ----------
         time : array_like (1-D)
-            time points at which to calculate the light curve
+            Time points at which to calculate the light curve [day].
         *taus : floats (arbitrary number)
-            arbitrary number of taus, should be the same as the number
-            of rings
+            Arbitrary number of taus, should be the same as the number
+            of rings [-].
         
         Returns
         -------
         lightcurve : array_like (1-D)
-            simulated theoretical lightcurve (normalised flux) based on the
-            inputs [L*]
+            Simulated theoretical light curve (normalised flux) based on the
+            inputs [L*].
         '''
         # make sure that the opacities are recorded in a list
         taus = []
@@ -335,22 +342,22 @@ def optimise_opacities(time, lightcurve, planet_radius, inner_radii,
 def determine_num_ringlets(multiplier, max_ringlets=100):
     '''
     This function determines the number of ringlets the disk will divided into
-    and how for the ring_divide_fitter function
+    and how for the ring_divide_fitter function.
 
     Parameters
     ----------
-    multiplier : int or array
-        contains either a integer which will be repeatedly be multiplied until
+    multiplier : int or array_like (1-D)
+        Contains either a integer which will be repeatedly be multiplied until
         the maximum number of rings has been reached, or an array of values
-        with which to multiply the number of ringlets
+        with which to multiply the number of ringlets.
     max_ringlets : int
-        the maximum number of ringlets allowed [default = 100]
+        The maximum number of ringlets allowed [default = 100].
 
     Returns
     -------
-    num_ringlets : array
-        contains the subsequent number of ringlets that the disk should be
-        divided into
+    num_ringlets : array_like (1-D)
+        Contains the subsequent number of ringlets that the disk should be
+        divided into.
     '''
     num_ringlets = [1]
     # integer -> keep going until you exceed max_ring_number
@@ -378,74 +385,76 @@ def division_fitter(time, lightcurve, planet_radius, disk_radius,
                     dt, limb_darkening, transverse_velocity, num_ringlets,
                     max_num_ringlets, extend_first=True):
     '''
-    This function fits the input lightcurve by splitting a disk with the given
-    input parameters into various ringlets. The opacities of the ringlets are
-    then optimised to fit the lightcurve. Watch out for over-fitting.
+    This function fits the input light curve by splitting a disk with the 
+    given input parameters into various ringlets. The opacities of the 
+    ringlets are then optimised to fit the lightcurve. Watch out for over-
+    fitting.
     
     Parameters
     ----------
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     lightcurve : array_like (1-D)
-        normalised flux data points at which the light curve is calculated [L*]
+        Normalised flux data points at which the light curve is calculated 
+        [L*].
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     disk_radius : array_like (1-D)
-        maximum disk radii of investigated ellipses [R*]
-    initial_opacities : float or array of floats
-        initial opacity estimate of the single disk structure (use as a first
+        Maximum disk radii of investigated ellipses [R*].
+    initial_opacities : float or array_like (1-D)
+        Initial opacity estimate of the single disk structure (use as a first
         guess the approximate depth of the largest ring feature in the light
-        curve) [-]
+        curve) [-].
     inclination : array_like (1-D)
-        array of inclinations of the ring system [deg]
+        Array of inclinations of the ring system [deg].
     tilt : array_like (1-D)
-        array of tilts of the ring system, this is the angle between the x-axis
-        and the semi-major axis of the projected ellipse [deg]
+        Array of tilts of the ring system, this is the angle between the 
+        x-axis and the semi-major axis of the projected ellipse [deg].
     impact_parameter : array_like (1-D)
-        array of the impact parameters between the centre of the rings w.r.t. 
-        centre of the star [R*]
+        Array of the impact parameters between the centre of the rings w.r.t.
+        centre of the star [R*].
     dt : array_like (1-D)
-        array of delta time parameters that can be used to shift the light 
-        curve left or right in time space [days]
+        Array of delta time parameters that can be used to shift the light 
+        curve left or right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u,  of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     num_ringlets : int
-        number of ringlets the disk has been subdivided into
+        Number of ringlets the disk has been subdivided into.
     max_num_ringlets : int
-        the maximum number of ringlets the disk will be subdivided into
+        The maximum number of ringlets the disk will be subdivided into.
     extend_first : bool
-        if true then the first ring to transit the star is extended to the
-        planet. this is for two reasons, the first is that we could never
+        If true then the first ring to transit the star is extended to the
+        planet. This is for two reasons, the first is that we could never
         learn about rings before this one (as they do not transit the star)
         and the second is that this could reduce the effect of a numerical
         error during optimisation that causes a wiggle in the light curve.
-        if false then no ring extension takes place
+        If false then no ring extension takes place.
 
     Returns
     -------
-    inner_radii : array of float   
-        contains the values of the inner radii of the rings for each solution
-        with a set number of rings
-    outer_radii : array of floats
-        contains the values of the outer radii of the rings for each solution
-        with a set number of rings
-    opacities : array of floats
-        contains the values of the opacities of each of the rings for each 
-        solution with a set number of rings
-    chi2 : array of floats 
-        contains the chi2 value of each model for each solution with a set
-        number of rings
-    opacities_0 : array of floats
-        this contains the optimal opacity values of the ringlets assuming that
+    inner_radii : array_like (1-D)
+        Contains the values of the inner radii of the rings for each solution
+        with a set number of rings [R*].
+    outer_radii : array_like (1-D)
+        Contains the values of the outer radii of the rings for each solution
+        with a set number of rings [R*].
+    opacities : array_like (1-D)
+        Contains the values of the opacities of each of the rings for each 
+        solution with a set number of rings [-].
+    chi2 : array_like (1-D)
+        Contains the chi2 value of each model for each solution with a set
+        number of rings.
+    opacities_0 : array_like (1-D)
+        This contains the optimal opacity values of the ringlets assuming that
         the ringlets have the widths they should have (e.g. 2 ringlets have
         the thickness of half the disk radius each and there are 2 opacities
         instead of 32 ringlets where the first 16 have the same first opacity 
-        and the second 16 have the same second opacity. this is used for the
-        next subdivision of the disk.
+        and the second 16 have the same second opacity) [-]. This is used for
+        the next subdivision of the disk.
     '''
     print('dividing into %i ringlets' % num_ringlets)
     # ensure intial opacities are iterable 
@@ -475,68 +484,68 @@ def division_fitter(time, lightcurve, planet_radius, disk_radius,
     opacities_0 = optimal_opacities
     return inner_radii, outer_radii, opacities, chi2, opacities_0
 
-
 def merge_fitter(time, lightcurve, planet_radius, inner_radii, outer_radii,
                  opacities, inclination, tilt, impact_parameter, dt,
                  limb_darkening, transverse_velocity, merge_fraction,
                  unpack_map_in, optimised_chi2_in):
     '''
     This function takes the input ring system model that has been divided into
-    ringlets,  merges the ringslet via the merge_fraction parameter and then 
+    ringlets, merges the ringslet via the merge_fraction parameter and then 
     optimises the opacities.
 
     Parameters
     ----------
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     lightcurve : array_like (1-D)
-        normalised flux data points at which the light curve is calculated [L*]
+        Normalised flux data points at which the light curve is calculated 
+        [L*].
     planet_radius : float
-        size of the planet [R*]
-    inner_radii : array of float   
-        contains the values of the inner radii of the rings for each solution
-        with a set number of rings
-    outer_radii : array of floats
-        contains the values of the outer radii of the rings for each solution
-        with a set number of rings
-    opacities : array of floats
-        contains the values of the opacities of each of the rings for each 
-        solution with a set number of rings
+        Size of the planet [R*].
+    inner_radii : array_like (1-D) 
+        Contains the values of the inner radii of the rings for each solution
+        with a set number of rings [R*].
+    outer_radii : array_like (1-D)
+        Contains the values of the outer radii of the rings for each solution
+        with a set number of rings [R*].
+    opacities : array_like (1-D)
+        Contains the values of the opacities of each of the rings for each 
+        solution with a set number of rings [-].
     inclination : array_like (1-D)
-        array of inclinations of the ring system [deg]
+        Array of inclinations of the ring system [deg].
     tilt : array_like (1-D)
-        array of tilts of the ring system, this is the angle between the x-axis
-        and the semi-major axis of the projected ellipse [deg]
+        Array of tilts of the ring system, this is the angle between the 
+        x-axis and the semi-major axis of the projected ellipse [deg].
     impact_parameter : array_like (1-D)
-        array of the impact parameters between the centre of the rings w.r.t. 
-        centre of the star [R*]
+        Array of the impact parameters between the centre of the rings w.r.t.
+        centre of the star [R*].
     dt : array_like (1-D)
-        array of delta time parameters that can be used to shift the light 
-        curve left or right in time space [days]
+        Array of delta time parameters that can be used to shift the light 
+        curve left or right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u, of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     merge_fraction : float
-        allowed standard deviation of the opacities
-    unpack_map_in : array of int
-        the unpack map of the inner/outer radii and opacities. this is used to
+        Allowed standard deviation of the opacities.
+    unpack_map_in : array_like (1-D)
+        The unpack map of the inner/outer radii and opacities. This is used to
         determine whether the ring merging has had any effect and whether or
-        not this should be repeated
+        not this should be repeated.
     optimised_chi2_in : float
-        the input optimised chi2 value, this is useful to see if the model is
-        getting better or not
+        The input optimised chi2 value, this is useful to see if the model is
+        getting better or not.
 
     Returns
     -------
-    optimised_opacities : array of floats
-        contains the values of the opacities of each of the rings for each 
-        solution with a set number of rings
-    optimised_chi2 : array of floats 
-        contains the chi2 value of each model for each solution with a set
-        number of rings
+    optimised_opacities : array_like (1-D)
+        Contains the values of the opacities of each of the rings for each 
+        solution with a set number of rings [-].
+    optimised_chi2 : array_like (1-D)
+        Contains the chi2 value of each model for each solution with a set
+        number of rings.
     '''
     # determine start time
     start_time = time_now()
@@ -572,79 +581,80 @@ def ringlet_fitter(time, lightcurve, planet_radius, disk_radius,
     This tries to fit a ring system by fitting a disk that is subsequently
     divided, optimised, merged, optimised, and potentially is recursively
     merged and optimised until the ring bounds no longer change or after a
-    certain number of loops (whichever comes first)
+    certain number of loops (whichever comes first).
     
     Parameters
     ----------
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     lightcurve : array_like (1-D)
-        normalised flux data points at which the light curve is calculated [L*]
+        Normalised flux data points at which the light curve is calculated
+        [L*].
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     disk_radius : array_like (1-D)
-        maximum disk radii of investigated ellipses [R*]
-    initial_opacities : float or array of floats
-        initial opacity estimate of the single disk structure (use as a first
+        Maximum disk radii of investigated ellipses [R*].
+    initial_opacities : float or array_like (1-D)
+        Initial opacity estimate of the single disk structure (use as a first
         guess the approximate depth of the largest ring feature in the light
-        curve) [-]
+        curve) [-].
     inclination : array_like (1-D)
-        array of inclinations of the ring system [deg]
+        Array of inclinations of the ring system [deg].
     tilt : array_like (1-D)
-        array of tilts of the ring system, this is the angle between the x-axis
-        and the semi-major axis of the projected ellipse [deg]
+        Array of tilts of the ring system, this is the angle between the 
+        x-axis and the semi-major axis of the projected ellipse [deg].
     impact_parameter : array_like (1-D)
-        array of the impact parameters between the centre of the rings w.r.t. 
-        centre of the star [R*]
+        Array of the impact parameters between the centre of the rings w.r.t.
+        centre of the star [R*].
     dt : array_like (1-D)
-        array of delta time parameters that can be used to shift the light 
-        curve left or right in time space [days]
+        Array of delta time parameters that can be used to shift the light 
+        curve left or right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u, of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     num_ringlets : int
-        number of ringlets the disk has been subdivided into
+        Number of ringlets the disk has been subdivided into.
     max_num_ringlets : int
-        the maximum number of ringlets the disk will be subdivided into
+        The maximum number of ringlets the disk will be subdivided into.
     merge_fraction : float
-        allowed standard deviation of the opacities
+        Allowed standard deviation of the opacities.
     num_merges : int
-        number of times that a ringlet model should going through the merging
+        Mumber of times that a ringlet model should going through the merging
         process (note that no extra computational time at convergence of ring
-        boundaries)
+        boundaries).
     extend_first : bool
-        if true then the first ring to transit the star is extended to the
-        planet. this is for two reasons, the first is that we could never
+        If true then the first ring to transit the star is extended to the
+        planet. This is for two reasons, the first is that we could never
         learn about rings before this one (as they do not transit the star)
         and the second is that this could reduce the effect of a numerical
         error during optimisation that causes a wiggle in the light curve.
-        if false then no ring extension takes place
+        If false then no ring extension takes place.
 
     Returns
     -------
-    inner_radii : array of float   
-        contains the values of the inner radii of the ringlets for each 
-        solution with a set number of rings
-    outer_radii : array of floats
-        contains the values of the outer radii of the ringlets for each 
-        solution with a set number of rings
-    model_opacities : array of floats
-        contains the values of the opacities of each of the rings for each 
+    inner_radii : array_like (1-D)   
+        Contains the values of the inner radii of the ringlets for each 
+        solution with a set number of rings [R*].
+    outer_radii : array_like (1-D)
+        Contains the values of the outer radii of the ringlets for each 
+        solution with a set number of rings [R*].
+    model_opacities : array_like (1-D)
+        Contains the values of the opacities of each of the rings for each 
         solution with a set number of rings and each of the merge_fitter
-        passes
-    model_chi2 : array of floats
-        contains the chi2 value for each model iteration (just division and
-        then num_merges merge)
-    opacities_0 : array of floats
-        this contains the optimal opacity values of the ringlets assuming that
+        passes [-].
+    model_chi2 : array_like (1-D)
+        Contains the chi2 value for each model iteration (just division and
+        then num_merges merge).
+    opacities_0 : array_like (1-D)
+        This contains the optimal opacity values of the ringlets assuming that
         the ringlets have the widths they should have (e.g. 2 ringlets have
         the thickness of half the disk radius each and there are 2 opacities
         instead of 32 ringlets where the first 16 have the same first opacity 
-        and the second 16 have the same second opacity. this is used for the
-        next subdivision of the disk.
+        and the second 16 have the same second opacity) [-]. This is used for
+        the next subdivision of the disk.
     '''
     # set up array to hold model opacities and chi2
     model_opacities = np.zeros((num_merges + 1, max_num_ringlets))
@@ -696,80 +706,82 @@ def ring_fitter(noise_fraction, num_ringlet_array, time, lightcurve,
     Parameters 
     ----------
     noise_fraction : float
-        the standard deviation of the gaussian distribution added to the
-        lightcurve for noise purposes
-    num_ringlet_array : array of int
-        contains the integer values into which the disk should be divided
+        The standard deviation of the gaussian distribution added to the
+        lightcurve for noise purposes.
+    num_ringlet_array : array_like (1-D)
+        Contains the integer values into which the disk should be divided
         note that the num_ringlet_array[x+1] must be an integer multiple 
         of num_ringlet_array[x] and that the number of ringlets should be
-        ascending
+        ascending.
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     lightcurve : array_like (1-D)
-        normalised flux data points at which the light curve is calculated [L*]
+        Normalised flux data points at which the light curve is calculated 
+        [L*].
     planet_radius : float
-        size of the planet [R*]
+        Size of the planet [R*].
     disk_radius : array_like (1-D)
-        maximum disk radii of investigated ellipses [R*]
-    initial_opacities : float or array of floats
-        initial opacity estimate of the single disk structure (use as a first
+        Maximum disk radii of investigated ellipses [R*].
+    initial_opacities : float or array_like (1-D)
+        Initial opacity estimate of the single disk structure (use as a first
         guess the approximate depth of the largest ring feature in the light
-        curve) [-]
+        curve) [-].
     inclination : array_like (1-D)
-        array of inclinations of the ring system [deg]
+        Array of inclinations of the ring system [deg].
     tilt : array_like (1-D)
-        array of tilts of the ring system, this is the angle between the x-axis
-        and the semi-major axis of the projected ellipse [deg]
+        Array of tilts of the ring system, this is the angle between the 
+        x-axis and the semi-major axis of the projected ellipse [deg].
     impact_parameter : array_like (1-D)
-        array of the impact parameters between the centre of the rings w.r.t. 
-        centre of the star [R*]
+        Array of the impact parameters between the centre of the rings w.r.t. 
+        centre of the star [R*].
     dt : array_like (1-D)
-        array of delta time parameters that can be used to shift the light 
-        curve left or right in time space [days]
+        Array of delta time parameters that can be used to shift the light 
+        curve left or right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u, of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     merge_fraction : float
-        allowed standard deviation of the opacities
+        Allowed standard deviation of the opacities.
     num_merges : int
-        number of times that a ringlet model should going through the merging
+        Number of times that a ringlet model should going through the merging
         process (note that no extra computational time at convergence of ring
-        boundaries)
+        boundaries).
     extend_first : bool
-        if true then the first ring to transit the star is extended to the
-        planet. this is for two reasons, the first is that we could never
+        If true then the first ring to transit the star is extended to the
+        planet. This is for two reasons, the first is that we could never
         learn about rings before this one (as they do not transit the star)
         and the second is that this could reduce the effect of a numerical
         error during optimisation that causes a wiggle in the light curve.
-        if false then no ring extension takes place
+        If false then no ring extension takes place
     filename : str
-        name of the file where all the ring_fitter data will be saved
+        Name of the file where all the ring_fitter data will be saved.
     title : str
-        title of the file to be saved [default = '']
+        Title of the file to be saved [default = ''].
     known_rings : bool
-        if you know the actual ring system parameters set to True to include
-        data in the header of the savefile
-    known_params : tuple of (array of floats)
-        this is a tuple containing the inner radii of the rings, the outer
+        If you know the actual ring system parameters set to True to include
+        data in the header of the savefile.
+    known_params : tuple of array_like (1-D)
+        This is a tuple containing the inner radii of the rings, the outer
         radii of the rings and the opacities of the rings (only used if
-        known_rings == True)
+        known_rings == True).
 
     Returns
     -------
-    inner_radii : array of float   
-        contains the values of the inner radii of the ringlets for each 
-        solution with a set number of rings
+    inner_radii : array_like (1-D)
+        Contains the values of the inner radii of the ringlets for each 
+        solution with a set number of rings [R*].
     outer_radii : array of floats
-        contains the values of the outer radii of the ringlets for each 
-        solution with a set number of rings
+        Contains the values of the outer radii of the ringlets for each 
+        solution with a set number of rings [R*].
     write_data : array of floats
-        contains all the data grouped in one array. the columns are the random
+        Contains all the data grouped in one array. the columns are the random
         seed (used to identify the trial), the noise_fraction, the number of 
-        ringlets, the opacity of ringlet 1...max, chi2 value of the model, with
-        the rows being for the different merge case scenarios (user determined)
+        ringlets, the opacity of ringlet 1...max, chi2 value of the model,
+        with the rows being for the different merge case scenarios (user 
+        determined).
     '''
     # determine the maximum number of ringlets
     max_ringlets = num_ringlet_array[-1]
@@ -817,46 +829,48 @@ def write_header(time, planet_radius, inner_radii, outer_radii, opacities,
     simulation data provided by the ring fitter. It contains the actual model
     data (i.e. parameters for the clean lightcurve) and additionally includes
     the merge factor for the rings in the model and the number of transiting
-    or visible rings
+    or visible rings.
 
     Parameters
     ----------
     time : array_like (1-D)
-        time data points at which to the light curve is calculated
+        Time data points at which to the light curve is calculated [day].
     planet_radius : float
-        size of the planet [R*]
-    inner_radii : array of float   
-        contains the values of the inner radii of the rings for the model
-    outer_radii : array of floats
-        contains the values of the outer radii of the rings for the model
-        with a set number of rings
-    opacities : array of floats
-        contains the values of the opacities of each of the rings for the model
+        Size of the planet [R*].
+    inner_radii : array_like (1-D)
+        Contains the values of the inner radii of the rings for the model
+        with a set number of rings [R*].
+    outer_radii : array_like (1-D)
+        Contains the values of the outer radii of the rings for the model
+        with a set number of rings [R*].
+    opacities : array_like (1-D)
+        Contains the values of the opacities of each of the rings for the 
+        model with a set number of rings [-].
     inclination : float
-        inclination of the ring system [deg]
+        Inclination of the ring system [deg].
     tilt : float
-        tilt of the ring system, this is the angle between the x-axis and the
-        semi-major axis of the projected ellipse [deg]
+        Tilt of the ring system, this is the angle between the x-axis and the
+        semi-major axis of the projected ellipse [deg].
     impact_parameter : float
-        impact parameters between the centre of the ring system w.r.t. the
-        centre of the star [R*]
+        Impact parameters between the centre of the ring system w.r.t. the
+        centre of the star [R*].
     dt : float
-        delta time parameter that can be used to shift the lightcurve left or 
-        right in time space [days]
+        Delta time parameter that can be used to shift the lightcurve left or 
+        right in time space [day].
     limb_darkening : float
-        limb-darkening parameter, u,  of the star according to the linear law,
+        Limb-darkening parameter, u, of the star according to the linear law,
         I(mu)/I(1) = 1 - u * (1 - mu), where mu = cos(y), where y is the angle
-        between the line-of-sight and the emergent intensity [-]
+        between the line-of-sight and the emergent intensity [-].
     transverse_velocity : float
-        the transiting velocity of the ring system across the star [R*/day]
+        The transiting velocity of the ring system across the star [R*/day].
     merge_fraction : float
-        allowed standard deviation of the opacities
+        Allowed standard deviation of the opacities.
     max_ringlets : int
-        maximum number of ringlets used in the file
+        Maximum number of ringlets used in the file.
     title : str
-        string to append to the top of the file
+        String to append to the top of the file.
     filename : str
-        name of the file where all the ring_fitter data will be saved
+        Name of the file where all the ring_fitter data will be saved.
     
     Returns
     -------
@@ -905,28 +919,29 @@ def prepare_write_data(seed, noise_fraction, num_ringlets, opacities, chi2):
     Parameters
     ----------
     seed : int
-        the random seed used to add noise to the light curve
+        The random seed used to add noise to the light curve.
     noise_fraction : float
-        the standard deviation of the gaussian distribution added to the
-        lightcurve for noise purposes
+        The standard deviation of the gaussian distribution added to the
+        lightcurve for noise purposes.
     num_ringlets : int
-        the number of ringlets that the disk has been divided into for the fit
-    opacities : array of floats
-        opacities of the ringlets in an (m x n) array where n is the number of 
+        The number of ringlets that the disk has been divided into for the 
+        fit.
+    opacities : array_like (1-D)
+        Opacities of the ringlets in an (m x n) array where n is the number of 
         ringlets and m is the number of merge runs + 1 (for the unmerged run)
-        [m >= 1]
-    chi2 : array of floats
-        contains the chi2 values for each of the model passes (i.e. array of
-        length m)
+        [m >= 1].
+    chi2 : array_like (1-D)
+        Contains the chi2 values for each of the model passes (i.e. array of
+        length m).
 
     Returns
     -------
-    write_data : array of floats
-        contains all the data grouped in one array. the columns are the random
+    write_data : array_like (1-D)
+        Contains all the data grouped in one array. The columns are the random
         seed (used to identify the trial), the noise_fraction, the number of 
         ringlets, number of merges, the opacity of ringlet 1...max, chi2 value 
-        of the model, with the rows being for the different merge case scenarios
-        (user determined)
+        of the model, with the rows being for the different merge case 
+        scenarios (user determined).
     '''
     # extending constant parameters
     num_models = len(chi2)
@@ -943,21 +958,21 @@ def prepare_write_data(seed, noise_fraction, num_ringlets, opacities, chi2):
 
 def str_to_arr(array_string, delim=','):
     '''
-    This function converts a string array (converted using arr_to_str) back
-    into an array
+    This function converts a string array converted using arr_to_str() back
+    into an array.
 
     Parameters
     ----------
     array_string : str
-        string that has been specially formated by the arr_to_str() function
-        that will be converted back into an array
+        String that has been specially formated by the arr_to_str() function
+        that will be converted back into an array.
     delim : str
-        the delimiter that separates the array element values
+        The delimiter that separates the array element values [default = ','].
     
     Returns
     -------
-    array : array of floats
-        contains the float data contained by the string
+    array : array_like (1-D)
+        Contains the float data contained by the string.
     '''
     # split the string elements
     str_elements = array_string.split(delim)
@@ -971,21 +986,22 @@ def str_to_arr(array_string, delim=','):
 def arr_to_str(array, fmt='%.8f', delim=','):
     '''
     This function converts an array to a string_array that can be converted
-    back into an array using the str_to_arr() function
+    back into an array using the str_to_arr() function.
 
     Parameters
     ----------
-    array : array of floats
-        contains float data that should be converted to a string array
+    array : array_like (1-D)
+        Contains float data that should be converted to a string array.
     fmt : str
-        formatting string for each individual element of the array
+        formatting string for each individual element of the array 
+        [default = '%.8f'].
     delim : str
-        str to delimit the element values of the array
+        str to delimit the element values of the array [default = ','].
 
     Returns
     -------
     str_array : str
-        string version of the input array
+        String version of the input array.
     '''
     # set up str_array
     str_array = ''
@@ -999,43 +1015,44 @@ def arr_to_str(array, fmt='%.8f', delim=','):
 def read_file_header(filename):
     '''
     Reads the header of the filename to extract the actual ring system 
-    parameters
+    parameters.
 
     Parameters
     ----------
     filename : str
-        name of the file to extract ring system information
+        Name of the file to extract ring system information.
     
     Returns
     -------
-    time: array of floats
-        contains the times that the simulated light curve was modelled for
-    planet_radius float
-        size of the planet [R*]
-    inner radii : array of floats
-        contains the inner radii of the actual ring system
-    outer_radii : array of floats
-        contains the outer radii of the actual ring system
-    opacities : array of floats
-        contains the opacities of the actual ring system
+    time : array_like (1-D)
+        Contains the times that the simulated light curve was modelled for
+        [day].
+    planet_radius : float
+        Size of the planet [R*].
+    inner radii : array_like (1-D)
+        Contains the inner radii of the actual ring system [R*].
+    outer_radii : array_like (1-D)
+        Contains the outer radii of the actual ring system [R*].
+    opacities : array_like (1-D)
+        Contains the opacities of the actual ring system [-].
     inclination : float
-        inclination of the ring system [deg]
+        Inclination of the ring system [deg].
     tilt : float
-        inclination of the ring system [deg]
+        Tilt of the ring system [deg].
     impact_parameter : float
-        impact parameter of the ring system [R*]
+        Impact parameter of the ring system [R*].
     dt : float
-        time offset of the light curve [days]
+        Time offset of the light curve [day].
     limb_darkening : float
-        linear limb-darkening parameter of the star [-]
+        Linear limb-darkening parameter of the star [-].
     transverse_velocity : float
-        transverse velocity of the ring system in transit [R*/day]
+        transverse velocity of the ring system in transit [R*/day].
     merge_fraction : float
-        value used to merge rings
+        Value used to merge rings.
     num_rings : int
-        total number of rings for the actual ring system
+        Total number of rings for the actual ring system.
     num_visible : int
-        number of visible rings for the actual ring system
+        Number of visible rings for the actual ring system.
     '''
     # open, read, close
     f = open(filename, 'r')
@@ -1068,17 +1085,17 @@ def expand_data(filename, new_num_ringlets, delim=','):
     extended. Note that the new number of ringlets must be an integer multiple
     of the old number of ringlets. This function uses np.repeat to expand the
     already saved opacities and will edit the column headers such that it can
-    accomodate the new number of ringlets
+    accomodate the new number of ringlets.
 
     Parameters
     ----------
     filename : str
-        name of the file to be expanded
+        Name of the file to be expanded.
     new_num_ringlets : int
-        new number of ringlets (expand to ->). this number must be an integer
-        multiple of the old number of ringlets
+        New number of ringlets (expand to ->). This number must be an integer
+        multiple of the old number of ringlets.
     delim : str
-        the delimiter that separates the array element values
+        The delimiter that separates the array element values [default = ','].
 
     Returns
     -------
