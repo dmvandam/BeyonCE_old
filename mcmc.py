@@ -1,87 +1,307 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+'''
+This module is used to relax the hard ring boundaries determined by the ring
+fitter module. It does this by setting up an MCMC model of the ring system,
+selecting an appropriate prior and then using the emcee package developed by
+Foreman-Macket el al. 2013 (https://iopscience.iop.org/article/10.1086/670067).
+It further depends on the simulate_lightcurve.simulate_lightcurve(), which in
+turn depends on the pyPplusS pacakage developed by Edan Rein & Aviv Ofir 2019.
+
+simulate_lightcurve.simulate_lightcurve has been modified here to the form
+required by emcee, namely:
+    1. Parameters tied into one tuple (aptly named P)
+
+    2. Inclination and tilt in P will be in radians instead of degrees (this
+       is because walkers move too slowly in degrees
+
+The main tools of this module for MCMC setup include:
+    i.      setup the ringsystem model
+    ii.     setup the ringsystem prior
+    iii.    setup the initial walker position
+    iv.     determining the log likelihood
+    v.      determining the log probability
+    vi.     actually running the MCMC methods
+
+The main plotting tools include:
+    i.      plotting the walkers
+    ii.     plotting a corner plot
+    iii.    plotting samples from the MCMC chain vs the data
+    iv.     plotting given models vs the data
+
+The main calculation tools include:
+    i.      extracting certain walkers (based on preset conditions)
+    ii.     determining the statistics of the walkers
+
+A final utility tool:
+    i.      prints out the parameters in P in a human-readable "pretty" way
+
+Finally, if the module is run as a script (instead of imported from elsewhere),
+a tutorial of each of the functions will be given (i.e. a description will be
+printed along with relevant plots to show the working of the functions in this
+module).
+'''
+
 
 ###############################################################################
-############################## MCMC FUNCTIONS #################################
+########################### IMPORT MAIN MODULES ###############################
 ###############################################################################
 
-# This module contains all the MCMC related functions
-
-
-
-########################
-#%% STANDARD MODULES %%#
-########################
-
-import matplotlib.pyplot as plt
-from tqdm import tqdm
+# calculations
 import numpy as np
-import corner
 import emcee
+# plotting
+import corner
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
+###############################################################################
+############################### MCMC FUNCTIONS ################################
+###############################################################################
 
-##########################
-#%% P0 SET UP FUNCTIONS %#
-##########################
-
-def get_normal(lower, upper, num):
+def ringsystem_model(P, time)
     '''
-    this function creates a normal distribution more or less between 
-    lower and upper
+    This function is a ring system model that relies on the light curves
+    simulated by simulate_lightcurve.simulate_lightcurve(), with three major
+    differences. The first is how the arguments are set-up, which is necessary
+    for the emcee module, the second is that the inclination and tilt are in
+    RADIANS instead of DEGREES. This is to allow the walkers to explore a
+    larger parameter space (0.1 rad >> 0.1 deg). The final third difference is
+    that the rings are expressed in ring edges, as the assumption is that all
+    rings are touching.
+
+    Parameters
+    ----------
+    P : tuple (2 * num_rings + 8) 
+        Contains the internal parameters (re-order for multi ring 
+        compatibility).
+            redges  - 0:n+1 : inner radii of the rings [R*].
+            tau  - n+1:3n+1 : opacities of the rings [-].
+            rp : radius of the planet [R*].
+            inc : inclination of the disk [rad].
+            tilt : tilt of the disk [rad].
+            b : impact parameter of the disk [R*].
+            dt : time of closest approach [day].
+            u : linear limb-darkening parameter [-].
+            vt : transverse velocity of the disk [R*/day].
+    time : array_like (1-D)
+        Time data where ring system light curve should be simulated [day].
+    
+    Returns
+    -------
+    lightcurve : array_like (1-D)
+        Flux data for the lightcurve given the input parameters.
+    '''
+    # determine the number of rings
+    num_params = len(P)
+    num_rings  = (num_params - 8) // 2
+    # unpack non-dynamic portion of the parameter tuple P
+    rp, inc, tilt, b, dt, u, vt = P[:-7]
+    # unpack dynamic portion of the parameter tuple P
+    rin  = P[:num_rings]
+    rout = P[1:num_rings+1]
+    tau  = P[num_rings+1:2*num_rings+1]
+    # convert inclination and tilt degrees
+    inc_deg = np.rad2deg(inc)
+    tilt_deg = np.rad2deg(tilt)
+    # get the light curve values
+    lightcurve, _ = simulate_lightcurve(time, rp, rin, rout, tau, inc_deg, 
+                                        tilt_deg, b, dt, u, vt)
+    return lightcurve
+
+def disk_prior(P, redge_bounds, tau_bounds=(0, 1), rp_bounds=(0, 1),
+               inc_bounds=(0, np.pi/2), tilt_bounds=(-np.pi, np.pi),
+               u_bounds=(0, 1), vt_bounds=(0, 20)):
+    '''
+    This function determines the bounds of all the input parameters.
     
     Parameters
     ----------
-    lower : float
-        lower limit of the normal distribution
-    upper : float
-        upper limit of the normal distribution
+    P : tuple (3 * num_rings + 7) 
+        Contains the internal parameters (re-order for multi ring 
+        compatibility).
+            redges  - 0:n+1 : inner radii of the rings [R*].
+            tau  - n+1:2n+1 : opacities of the rings [-].
+            rp : radius of the planet [R*].
+            inc : inclination of the disk [rad].
+            tilt : tilt of the disk [rad].
+            b : impact parameter of the disk [R*].
+            dt : time of closest approach [day].
+            u : linear limb-darkening parameter [-].
+            vt : transverse velocity of the disk [R*/day].
+    redge_bounds : array_like (2-D)
+        Contains the ringlet bounds for the ring edge radii of the modelled 
+        ring system. Note that the bounds should be determined by the ringlet
+        bounds, which in turn are defined by the size of the disk and the
+        number of ringlets used to make the initial model [R*].
+    tau_bounds : array_like (2-D) or tuple
+        Contains the lower and upper bounds for the opacities. This could be
+        for each ring or for the whole system [default = (0, 1)].
+    rp_bounds : tuple
+        Contains the lower and upper bounds for the radius of the planet 
+        [default = (0, 1) R*].
+    inc_bounds : tuple
+        Contains the lower and upper bounds for the inclination of the ring
+        system [default = (0, np.pi/2) rad].
+    tilt_bounds : tuple
+        Contains the lower and upper bounds for the tilt of the ring system
+        [default = (-np.pi, np.pi) rad].
+    u_bounds : tuple
+        Contains the limb-darkening parameter lower and upper bounds for the
+        star [default = (0, 1)].
+    vt_bounds : tuple
+        Contains the transverse velocity lower and upper bounds for the ring
+        system in transity [default = (0, 20) R*/day].
+
+    Returns
+    -------
+    prior : float
+        Either 0 if possible solution or -np.inf if parameters stored in P
+        are considered unacceptable.
+    '''
+    # determine the number of rings
+    num_params = len(P)
+    num_rings  = (num_params - 8) // 2
+    # unpack non-dynamic portion of the parameter tuple P
+    rp, inc, tilt, b, dt, u, vt = P[:-7]
+    # unpack dynamic portion of the parameter tuple P
+    redges  = P[:num_rings+1]
+    tau  = P[num_rings+1:2*num_rings+1]
+    def within_bounds(parameter, parameter_bounds):
+        '''
+        This helper function determines whether the parameter is bound by
+        the parameter bounds
+        
+        Parameters
+        ----------
+        parameter : float
+            Parameter value to be checked.
+        parameter_bounds : tuple
+            Boundaries of the parameter.
+
+        Returns
+        -------
+        bounded : bool
+            Whether or not the parameter is between the parameter_bounds
+        '''
+        bounded = parameter_bounds[0] <= parameter <= parameter_bounds[1])
+        return bounded
+    # ensure that all ring opacities are between 0 and 1
+    for t in tau:
+        if not within_bounds(t, tau_bounds):
+            return -np.inf
+    # ensure that the inclination (rad) is between 0 and pi/2
+    if not within_bounds(inc, inc_bounds):
+        return -np.inf
+    # ensure that the tilt (rad) is between -pi and pi
+    if not within_bounds(tilt, tilt_bounds):
+        return -np.inf
+    # ensure that the planet is not larger than the star
+    if not within_bounds(rp, rp_bounds):
+        return -np.inf
+    # ensure that the disk transits the star
+    disk_height = np.abs(b) - np.abs(rout[-1] * np.sin(tilt))
+    if not within_bounds(disk_height, (0, 1)):
+        return -np.inf
+    # ensure that linear limb-darkening parameter is between 0 and 1
+    if not within_bounds(u, u_bounds):
+        return -np.inf
+    # ensure that transverse velocity is within a given range
+    if not within_bounds(vt, vt_bounds):
+        return -np.inf
+    ### ensure that the inner and outer radii can only shift +- one ringlet
+    ### width redge_bounds = [x,2] array containing lower and upper bounds for
+    ### rin/rout
+    # for inner radii find the closest two ring bounds and prevent cross over
+    for r, rb in zip(redges, redge_bounds):
+        if not (rb[0] <= r <= rb[1])
+            return -np.inf
+    # if all conditions are met, then the parameters are allowed
+    return 0.
+
+        
+###############################################################################
+############################ P0 SET UP FUNCTIONS ##############################
+###############################################################################
+
+def get_normal(lower_limit, upper_limit, num):
+    '''
+    This function creates a normal distribution for a parameter, which is more 
+    or less bounded between the lower and upper limit. It assumes that the mean
+    is between the two limits provided.
+    
+    Parameterse
+    ----------
+    lower_limit : float
+        Lower limit of the normal distribution.
+    upper_limit : float
+        Upper limit of the normal distribution.
     num : int
-        number of values
+        Number of values to draw from the normal distribution.
         
     Returns
     -------
     parameter : array
-        contains a normal distribution contained by the lower and upper limit
+        Contains a normal distribution defined by the lower and upper limits.
     '''
-    mean  = 0.5 * (lower + upper)
-    sigma = (upper - lower) / 6
+    mean  = 0.5 * (lower_limit + upper_limit)
+    sigma = (upper_limit - lower_limit) / 6
     parameter = np.random.normal(mean, sigma, num)
-    return parameter   
+    return parameter
 
-def bounded_p0(ndim, nw, bounds):
+def bounded_p0(ndim, nw, bounds, max_trials=20):
     '''
-    this function creates a wide parameter space with parameter boundaries
+    This function creates a initial walker prior based on the bounds that are
+    provided. The walkers will be distributed normally between the bounds
+    provided.
     
     Parameters
     ----------
     ndim : int
-        number of parameters
+        Number of parameters.
     nw : int
-        number of walkers
+        Number of walkers.
     bounds : list of tuples
-        contains the upper and lower bound for each parameter
+        Contains the upper and lower bound for each parameter.
+    max_trials : int
+        This is the maximum number of times 
         
     Returns
     -------
     p0 : array
-        contains the initial value for each of the walkers (nw x ndim)
+        Contains the initial value for each of the walkers (nw x ndim).
     '''
+    # set up the prior
     p0 = np.zeros((0,nw))
     for x in range(ndim):
         # get parameter distribution
         lower_bound, upper_bound = bounds[x]
         p = get_normal(lower_bound, upper_bound, nw)
-        # ensure it is bound
-        p[p < lower_bound] = lower_bound
-        p[p > upper_bound] = upper_bound
+        # check that values are bound and redraw values that are unbounded
+        num_trials = 0
+        while np.sum((p < lower_bound) * (p > upper_bound)) != 0:
+            # select and redraw values beyond lower boundary
+            mask_lower = p < lower_bound
+            num_lower  = np.sum(mask_lower)
+            p[mask_lower] = get_normal(lower_bound, upper_bound, num_lower)
+            # select and redraw values beyond upper boundary
+            mask_upper = p > upper_bound
+            num_upper  = np.sum(mask_upper)
+            p[mask_upper] = get_normal(lower_bound, upper_bound, num_upper)
+            # increment the number of trials
+            num_trials += 1
+            # if max trials exceeded then manually set lower and upper values
+            # to the corresponding bounds
+            if num_trials == max_trials:
+                p[p < lower_bound] = lower_bound
+                p[p < upper_bound] = upper_bound
+                break
         # add to stack
         p0 = np.vstack((p0, p))
     return p0.T
 
 def ball_p0(P, nw, size, bounds):
     '''
-    this functions creates a gaussian ball centred on P with a given size,
+    This function creates a gaussian ball centred on P with a given spread,
     and ensures that none of the parameters are outside of parameter space.
 
     Parameters
@@ -110,63 +330,64 @@ def ball_p0(P, nw, size, bounds):
     return p0
 
 
-
 ############################
 #%% LIKELIHOOD FUNCTIONS %%#
 ############################
 
 def lnlike(P, time, flux, error, model):
     '''
-    this function returns the natural logarithm of the likelihood function of
-    the input model with parameters P, given a time, flux and error
+    This function returns the natural logarithm of the likelihood function of
+    the input model with parameters P, given a time, flux and error.
 
     Parameters
     ----------
     P : tuple, list, array of float
-        containing the model parameters
+        Contains the model parameters.
     time : array of float
-        contains time data for the light curve
+        Contains time data for the light curve.
     flux : array of float
-        contains flux data for the light curve
+        Contains flux data for the light curve.
     error : array of float
-        contains error data for the light curve
+        Contains error data for the light curve.
     model : function
-        contains the model to be tested
+        Contains the model to be tested.
 
     Returns
     -------
     like : float
-        the natural logarithm of the likelihood function
+        The natural logarithm of the likelihood function.
     '''
     like = -0.5 * np.sum(((flux - model(P, time))/error)**2 + np.log(error**2))
     return like
 
-def lnprob(P, time, flux, error, model, model_prior):
+def lnprob(P, time, flux, error, model, model_prior, prior_args=None):
     '''
-    this function returns the natural logarithm of the probability of the
-    likelihood function given the input parameters
+    This function returns the natural logarithm of the probability of the
+    likelihood function given the input parameters.
 
     Parameters
     ----------
     P : tuple, list, array of floats
-        contains the model parameters
+        Contains the model parameters.
     time : array of float
-        contains time data for the light curve
+        Contains time data for the light curve.
     flux : array of float
-        contains flux data for the light curve
+        Contains flux data for the light curve.
     error : array of float
-        contains error data for the light curve
+        Contains error data for the light curve.
     model : function
-        model for the light curve
+        Model for the light curve.
     model_prior : function
-        prior to calculate probability
+        Prior to calculate probability.
+    prior_args : tuple
+        Contains all the values for the arguments of the prior.
 
     Returns
     -------
     prob : float
-        the natural logarithm of the probability of the model
+        The natural logarithm of the probability of the model.
     '''
-    prior = model_prior(P)
+    prior = model_prior(P, *prior_args)
     if np.isfinite(prior):
         prob = prior + lnlike(P, time, flux, error, model)
     else:
@@ -174,25 +395,24 @@ def lnprob(P, time, flux, error, model, model_prior):
     return prob
 
 
-
-######################
-#%% Plot Functions %%#
-######################
+###############################################################################
+############################### Plot Functions ################################
+###############################################################################
 
 def plot_hist(samples, lbls=None, ncols=2, bins=20, savename='test.png'):
     '''
     this function plots a histogram of the samples inserted
-    
+        
     Parameters
     ----------
     samples : array
-        of model parameters
+        Samples of model parameters. 
     lbls : list of str
-        names of all the parameters
+        Names for all the parameters.
     ncols : int
-        number of columns
+        Number of columns to display the subplots in [default = 2].
     bins : int
-        number of bins for the histogram [default=20]
+        Number of bins for the histogram [default = 20].
     savename : str
         name of the saved plot
     
@@ -200,8 +420,12 @@ def plot_hist(samples, lbls=None, ncols=2, bins=20, savename='test.png'):
     -------
     matplotlib.figure()
     '''
+    # setting up
     _, ndim = samples.shape
+    if isinstance(lbls, type(None)):
+       lbls = [None] * ndim
     nrows = int(ndim / ncols) + int(ndim % ncols != 0)
+    # create the figure
     fig, ax = plt.subplots(nrows, ncols, figsize=(ncols * 6, nrows * 4))
     for i in range(nrows):
         for j in range(ncols):
@@ -231,15 +455,19 @@ def plot_walkers(sampler, cut=0, lbls=None, savename='test.png'):
     -------
     matplotlib.figure()
     '''
-    # Extracting Samples
+    # extracting samples
     try:
         # ensemble object
         samples = sampler.get_chain()
     except:
         # numpy array
         samples = sampler
-    ns, nw, ndim = samples.shape # number of steps, walkers, dimensions
-    # Plotting
+    # number of steps, walkers and dimensions
+    ns, nw, ndim = samples.shape
+    # fix labels if necessary
+    if isinstance(lbls, type(None)):
+       lbls = [None] * ndim
+    # plotting
     fig, ax = plt.subplots(ndim, figsize=(14, ndim * 4), sharex=True)
     plt.subplots_adjust(hspace=0.1)
     ax[0].set_title('%i Walkers (Burn-in = %i)' % (nw, cut), fontsize=24)
@@ -275,12 +503,20 @@ def plot_triangle(sampler, cut=0, lbls=None, bounds=None, savename='test.png'):
     -------
     matplotlib.figure()
     '''
+    # extracting samples
     try:
+        # ensemble object
         samples = sampler.get_chain(discard=cut, flat=True)
     except:
+        # numpy array
         _, _, ndim = sampler.shape
         samples = sampler[cut:, :, :].reshape((-1, ndim))
+    # get dimension
     _, ndim = samples.shape
+    # fix labels if necessary
+    if isinstance(lbls, type(None)):
+       lbls = [None] * ndim
+    # plotting
     fig = corner.corner(samples, labels=lbls, figsize=(14, ndim * 4),
                         range=bounds)
     fig.savefig(savename)
@@ -330,9 +566,6 @@ def plot_samples(time, flux, error, model_list, sampler_list, lbls=None,
     plotted_samples : list of arrays
         the model parameters for the lines plotted separated per model/sampler
     '''
-    # remove warnings
-    import warnings
-    warnings.filterwarnings("ignore")
     # check whether or not cuts is an iterable
     try:
         test = cuts[0]
@@ -358,11 +591,15 @@ def plot_samples(time, flux, error, model_list, sampler_list, lbls=None,
     ax1.set_xlabel('Time [BJD - %i]' % (2454833 + dt), fontsize=16)
     for l, sampler, model, c, cut in zip(lbls, sampler_list, model_list, 
                                          colors, cuts):
+        # extract samples
         try:
+            # ensemble object
             flat_samples = sampler.get_chain(discard=cut, flat=True)
         except:
+            # numpy array
             _, _, ndim = sampler.shape
             flat_samples = sampler[cut:, :, :].reshape((-1, ndim))
+        # select random samples
         inds = np.random.randint(len(flat_samples), size=num)
         for ind in tqdm(inds):
             # prevent models that do not change
@@ -505,12 +742,18 @@ def extract_solutions(sampler, inds, bounds, cut=0, lbls=None,
         contains the parameter values of the walkers that have been extracted
         by the inds and bounds
     '''
+    # extract samples
     try:
+        # ensemble object
         samples = sampler.chain
         samples = np.moveaxis(samples,0,1)
     except:
+        # numpy array
         samples = sampler
     ns, nw, ndim = samples.shape
+    # fix labels if necessary
+    if isinstance(lbls, type(None)):
+       lbls = [None] * ndim
     # masks are created based on the final value of the walker
     last_sample = samples[-1, :, :]
     sub_samples = []
@@ -547,76 +790,86 @@ def extract_solutions(sampler, inds, bounds, cut=0, lbls=None,
     plt.show()
     return sub_samples
 
-###########################
-#%% STATISTIC FUNCTIONS %%#
-###########################
+
+###############################################################################
+############################# STATISTICS FUNCTIONS ############################
+###############################################################################
 
 def stats(sampler, cut=0):
     '''
-    This function returns the percentiles of the parameters and best parameters
+    This function returns the percentiles of the parameters and best fit
+    parameters.
     
     Parameters
     ----------
     sampler : EnsembleSampler
-        MCMC object containing all the parameters
+        MCMC object containing all the parameters.
     cut : int
-        number of links to remove (burn-in period)
+        Number of links to remove (burn-in period).
         
     Returns
     -------
     statistics : tuple
-        containing the 50th, 16th and 84th percentile of the parameters
+        Containing the 50th, 16th and 84th percentile of the parameters.
     p_best : list
-        contains just the 50th percentile (the mean)
+        Contains just the 50th percentile (the mean).
     '''
+    # extracting the samples
     try:
+        # ensemble object
         flat_samples = sampler.get_chain(discard=cut, flat=True)
     except:
+        # numpy array
         _, _, ndim = sampler.shape
         flat_samples = sampler[cut:, :, :].reshape((-1, ndim))
+    # extracting percentiles
     lower, mid, upper = np.percentile(flat_samples, [16,50,84], axis=0)
     statistics = np.array([mid, upper-mid, mid-lower]).T
+    # representing best fit
     p_best = mid
     return statistics, p_best
 
 
+###############################################################################
+############################## MAIN MCMC FUNCTION #############################
+###############################################################################
 
-#####################
-#%% MCMC FUNCTION %%#
-#####################
-
-def run_mcmc(time, flux, error, model, model_prior, P, ns, savename='test.h5', 
-             reset=False, moves=[(emcee.moves.StretchMove(), 1)]):
+def run_mcmc(time, flux, error, model, model_prior, prior_args, P, ns, 
+             savename='test.h5', reset=False, 
+             moves=[(emcee.moves.StretchMove(), 1)]):
     '''
     this function actually runs the mcmc code
 
     Parameters
     ----------
     time : array of floats
-        contains time data for the light curve
+        Contains time data for the light curve.
     flux : array of floats
-        contains flux data for the light curve
+        Contains flux data for the light curve.
     error : array of floats
-        contains error data for the light curve
+        Contains error data for the light curve.
     model : function
-        model for the light curve
+        Model for the light curve.
     model_prior : function
-        prior to calculate model probability
+        Prior to calculate model probability.
+    prior_args: tuple 
+        Contains additional arguments for the model_prior.
     P : list, tuple, array of floats
-        contains model parameters for all the walkers
+        Contains model parameters for all the walkers.
     ns : int
-        number of steps for the walkers
+        Number of steps for the walkers.
     savename : str
-        name of the backend to save data
+        Name of the backend to save data.
     reset : bool
-        if true will reset progress, if false will append to backend
+        If true will reset progress, if false will append to backend
+        [default = False].
 
     Returns
     -------
     p0 : array
-        contains the best fit values for the sampler [?]
+        Contains the best fit values for the sampler.
     sampler : EnsembleSampler
-        MCMC object containing all the parameters
+        MCMC object containing all the parameters.
     '''
     nw, ndim = P.shape
     # setting up backend
@@ -624,7 +877,7 @@ def run_mcmc(time, flux, error, model, model_prior, P, ns, savename='test.h5',
     if reset == True:
         BE.reset(nw, ndim)
     # setting up the sampler
-    args = (time, flux, error, model, model_prior)
+    args = (time, flux, error, model, model_prior, prior_args)
     sampler = emcee.EnsembleSampler(nw, ndim, lnprob, args=args, backend=BE, 
                                     moves=moves)
     # determine P
@@ -637,30 +890,36 @@ def run_mcmc(time, flux, error, model, model_prior, P, ns, savename='test.h5',
     return p0, sampler
 
 
+###############################################################################
+############################# PRINT FUNCTIONS #################################
+###############################################################################
 
-#######################
-#%% PRINT FUNCTIONS %%#
-#######################
-
-def print_parameters(parameters, lbls=[''], units=[''], digits=6):
+def print_parameters(parameters, lbls=None, units=None, digits=6):
     '''
-    this function prints the parameters with their units
+    This function prints the parameters with their units in a user friendly
+    way.
 
     Parameters
     ----------
     parameters : list, tuple, array of floats
-        contains the parameter values to be printed
+        Contains the parameter values to be printed.
     lbls : list of str
-        contains the names of the parameters
+        Contains the names of the parameters.
     units : list of str
-        contains the names of the parameter units
+        Contains the names of the parameter units.
     digits : int
-        the number of digits for the formatting str for the parameter values
+        The number of digits for the formatting str for the parameter values.
     
     Returns
     -------
     None
     '''
+    # fix lbls and units if necessary
+    if isinstance(lbls, type(None)):
+        lbls = [''] * len(parameters)
+    if isinstance(units, type(None)):
+        lbls = ['-'] * len(parameters)
+    # run through parameters to print
     for parameter, lbl, unit in zip(parameters, lbls, units):
         name = lbl.ljust(18)
         digit = digits
