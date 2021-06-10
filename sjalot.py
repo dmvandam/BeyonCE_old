@@ -61,6 +61,24 @@ plots, which are shaped like sjalots or onions.
 
 
 ###############################################################################
+#################################### TODO #####################################
+###############################################################################
+
+### SUB-GRID FEATURE ###
+# speed up the process by only analysing subgrid features, instead of the full
+# grid
+
+### VALIDATION ###
+# get 100 different light curves from the simulate_lightcurve
+# run through sjalot plotter and see if the solutions are close
+# make sure to include "real" gradients
+# make sure to include "real" noisy gradients
+# determine breakdown size of the rings
+#   i.e. 100 solutions that are 100 R*, 50 R*, 25 R*, 10 R* ... until no longer
+#   available
+
+
+###############################################################################
 ############################ IMPORT MAIN MODULES ##############################
 ###############################################################################
 
