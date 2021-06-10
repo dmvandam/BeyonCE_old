@@ -10,32 +10,32 @@ This module covers all the light curve simulation and ring system generation wit
 
 The generation of theoretical light curves and how to make them "_noisy_".
 
-[x] Simulate a signal-to-noise ratio 1 light curve (this is based off of a modified version of pyPplusS)
-[x] Be able to add noise to this theoretical baseline (based on different distributions)
-[x] Remove data from the above light curve (i.e. realistic data collection)
-[x] It should be able to generate random ring systems
+ - [x] Simulate a signal-to-noise ratio 1 light curve (this is based off of a modified version of pyPplusS)
+ - [x] Be able to add noise to this theoretical baseline (based on different distributions)
+ - [x] Remove data from the above light curve (i.e. realistic data collection)
+ - [x] It should be able to generate random ring systems
 
 ### Analysis
 
 Very basic analysis of the light curve garnered from the light curve gradients.
 
-[x] Calculate the slopes given boundaries
-[x] Determine the minimum transverse velocity according to the Van Werkhoven et al., 2014 method
-[x] Determine the minimum disk size
+ - [x] Calculate the slopes given boundaries
+ - [x] Determine the minimum transverse velocity according to the Van Werkhoven et al., 2014 method
+ - [x] Determine the minimum disk size
 
 ### Plotting
 
 To visualise what is occuring it is important that there are plotting functions.
 
-[x] Plot vector images of the ring system
-[x] Plot the simulated light curve
-[x] Plot a combination of both
+ - [x] Plot vector images of the ring system
+ - [x] Plot the simulated light curve
+ - [x] Plot a combination of both
 
 ### Demo
 
 When the module is run a demo should run to show all the features of this module
 
-[x] Demo features
+ - [x] Demo features
 
 ## Parameter Explorer
 
