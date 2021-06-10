@@ -110,7 +110,7 @@ def simulate_lightcurve(time, planet_radius, inner_radii, outer_radii,
     zero = np.zeros_like(time)
     ones = np.ones_like(time)
     # initialise (p)lanet
-    planet_x = (time + dt) * transverse_velocity
+    planet_x = (time - dt) * transverse_velocity
     planet_y = impact_parameter * ones
     planet_r = planet_radius * ones
     # inclination and tilt from degrees to radians
@@ -244,7 +244,7 @@ def add_noise(lightcurve, noise_func, noise_args, seed=None):
         noise components defined by this function.
     '''
     # determine where the out-of-transit data is
-    stellar_flux_mask = (lightcurve == 1)
+    stellar_flux_mask = (lightcurve >= 0.999999)
     # determine the noise
     num_data = len(lightcurve)
     np.random.seed(seed)
