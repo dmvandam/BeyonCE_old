@@ -1166,7 +1166,7 @@ if __name__ == "__main__":
     # initialise parameters
     print('  a. initialising parameters:')
     Rmax = 50 
-    measured = [(-0.4, 0.2), (0.2, 0.3)]
+    measured = [(-0.4, 0.8), (0.2, 0.6)]
     dfy = 0.5
     print('     Rmax = %.2f [day]' % Rmax)
     print('     measured:')

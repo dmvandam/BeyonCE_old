@@ -17,7 +17,7 @@ import numpy as np
 from time import time as time_now
 from collections.abc import Iterable
 from scipy.optimize import curve_fit
-from simulate_lightcurve_v2 import add_noise, simulate_lightcurve
+from simulate_lightcurve import add_noise, simulate_lightcurve
 
 
 ###############################################################################
@@ -283,8 +283,7 @@ def optimise_opacities(time, lightcurve, planet_radius, inner_radii,
     optimal_opacities = np.zeros(len(inner_radii))
     # determine which rings must be optimised
     tilt_rad = np.deg2rad(tilt)
-    mask = np.abs(impact_parameter) - np.abs(outer_radii * np.sin(tilt_rad))
-             < 1
+    mask = np.abs(impact_parameter) - np.abs(outer_radii * np.sin(tilt_rad)) <1
     # mask rings
     true_inner_radii = inner_radii[mask]
     true_outer_radii = outer_radii[mask]
@@ -898,7 +897,7 @@ def write_header(time, planet_radius, inner_radii, outer_radii, opacities,
         # calculate the number of rings / visible rings
         num_rings = len(inner_radii)
         ring_heights = np.abs(outer_radii * np.sin(np.deg2rad(tilt)))
-        transiting = np.abs(impact_parameter) - ring_heights < 1
+        transiting = (np.abs(impact_parameter) - ring_heights) < 1
         num_visible = np.sum(transiting)
         print('# num rings [-] = %i' % num_rings, file=f)
         print('# num visible rings [-] = %i' % num_visible, file=f)
