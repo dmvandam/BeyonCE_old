@@ -42,19 +42,19 @@ When the module is run a demo should run to show all the features of this module
 This is module is used to explore and cut down the large parameter space that circumplanetary disk transits incur. 
 The most basic parameter set (which is considered in this module) is:
 Planet Parameter
- - Planet radius ($R_p$)
+ - Planet radius (Rp)
 Ring Geometry Parameters
- - Opacities ($\tau$)
- - Inner Radii ($R_in$) 
- - Outer Radii ($R_out$) 
+ - Opacities (tau)
+ - Inner Radii (Rin) 
+ - Outer Radii (Rout) 
 Disk Parameters
- - Inclination ($i$)
- - Tilt ($\phi$) - angle w.r.t. orbital path
- - Transverse Velocity ($v_t$)
- - Impact Parameter ($b$)
+ - Inclination (i)
+ - Tilt (phi) - angle w.r.t. orbital path
+ - Transverse Velocity (vt)
+ - Impact Parameter (b)
 Stellar Parameters
- - Linear Limb-Darkening Parameter ($u$)
+ - Linear Limb-Darkening Parameter (u)
 Time Alignment Parameters
- - Time Offset ($\delta t$)
+ - Time Offset (dt)
 
 These
