@@ -39,7 +39,7 @@ When the module is run a demo should run to show all the features of this module
 
 ## Parameter Explorer
 
-This is module is used to explore and cut down the large parameter space that circumplanetary disk transits incur. 
+This module is used to explore and cut down the large parameter space that circumplanetary disk transits incur. 
 The most basic parameter set (which is considered in this module) is:
 
 Planet Parameter
@@ -81,3 +81,110 @@ Speedy analytical equations to quickly setup a 3d grid of variable resolution. E
 
  - [x] Setting up a grid
  - [x] Imposing reflection symmetry where warranted
+ - [ ] Sub-grid methods
+
+### Demo
+
+When the module is run a demo should run to show all the features of this module.
+
+ - [x] Demo features
+
+### TODOs
+
+ - [ ] move get_closest_solution to validation module
+ - [ ] finish sub-grid parameter solving
+
+## Ring Fitter 
+
+This module is used to the light curve ring system fitting by subsequently dividing and then merging ringlets. 
+This is a precursor to the MCMC fitter, which will free up any number of parameters.
+
+### Fitters
+
+This contains all the fitting routines.
+
+ - [x] ring divider
+ - [x] ring merger
+ - [x] ringlet_fitter
+ - [x] utility functions
+
+### Write Files
+
+This contains all the routines used to write the data to a file such that the results can be saved.
+
+ - [x] write to file
+ - [x] read from file
+ - [x] helper functions
+
+### Demo
+
+When the module is run a demo should run to show all the features of this module.
+
+ - [ ] Demo features
+
+## MCMC
+
+This module contains the mcmc fitting of a ring system solution to a light curve.
+It takes as a starting point the solution of the Ring Fitter module.
+
+### Ring System Model
+
+We need a modified version, because of the way emcee takes parameters.
+We also need to define the priors.
+
+ - [x] Defining Ring System Model
+ - [x] Setting up Priors
+ - [ ] Defining prior bounds
+
+### Likelihood Functions
+
+These are the functions required to lead the walkers in the MCMC function.
+
+ - [x] natural logarithm of likelihood
+ - [x] natural logarithm of the lower bound
+
+### Plotting Functions
+
+These are the functions that produce all the relevant plots
+
+ - [x] Triangle Plot
+ - [x] Walkers Plot
+ - [x] Models Plot
+ - [x] Histogram (for priors) plot
+
+
+### Analysis Functions
+
+These are the functions that further the prime analysis of this module.
+
+ - [x] extract solutions
+ - [x] get statistics
+
+### MCMC Functions
+
+These are the functions pertaining with a whole mcmc analysis chain
+
+ - [ ] Runs mcmc formulation
+
+### Other Functions
+
+This is a list of random functionality.
+
+ - [x] Print Parameters
+
+### Demo
+
+When the 
+### Demo
+
+When the module is run a demo should run to show all the features of this module.
+
+ - [ ] Demo features
+
+
+## Validation
+
+This is a whole separate module that is focused on running all the code neccessary to validate the above modules
+
+ - [x] Simulate Light Curve?
+ - [ ] Sjalot Explorer (note: find closest data point should be here
