@@ -46,6 +46,7 @@ module).
 ###############################################################################
 
 # calculations
+from simulate_lightcurve import simulate_lightcurve
 import numpy as np
 import emcee
 # plotting
@@ -58,7 +59,7 @@ import matplotlib.pyplot as plt
 ############################### MCMC FUNCTIONS ################################
 ###############################################################################
 
-def ringsystem_model(P, time)
+def ringsystem_model(P, time):
     '''
     This function is a ring system model that relies on the light curves
     simulated by simulate_lightcurve.simulate_lightcurve(), with three major
@@ -95,7 +96,7 @@ def ringsystem_model(P, time)
     num_params = len(P)
     num_rings  = (num_params - 8) // 2
     # unpack non-dynamic portion of the parameter tuple P
-    rp, inc, tilt, b, dt, u, vt = P[:-7]
+    rp, inc, tilt, b, dt, u, vt = P[-7:]
     # unpack dynamic portion of the parameter tuple P
     rin  = P[:num_rings]
     rout = P[1:num_rings+1]
@@ -162,7 +163,7 @@ def disk_prior(P, redge_bounds, tau_bounds=(0, 1), rp_bounds=(0, 1),
     num_params = len(P)
     num_rings  = (num_params - 8) // 2
     # unpack non-dynamic portion of the parameter tuple P
-    rp, inc, tilt, b, dt, u, vt = P[:-7]
+    rp, inc, tilt, b, dt, u, vt = P[-7:]
     # unpack dynamic portion of the parameter tuple P
     redges  = P[:num_rings+1]
     tau  = P[num_rings+1:2*num_rings+1]
@@ -183,7 +184,7 @@ def disk_prior(P, redge_bounds, tau_bounds=(0, 1), rp_bounds=(0, 1),
         bounded : bool
             Whether or not the parameter is between the parameter_bounds
         '''
-        bounded = parameter_bounds[0] <= parameter <= parameter_bounds[1])
+        bounded = (parameter_bounds[0] <= parameter <= parameter_bounds[1])
         return bounded
     # ensure that all ring opacities are between 0 and 1
     for t in tau:
@@ -199,8 +200,8 @@ def disk_prior(P, redge_bounds, tau_bounds=(0, 1), rp_bounds=(0, 1),
     if not within_bounds(rp, rp_bounds):
         return -np.inf
     # ensure that the disk transits the star
-    disk_height = np.abs(b) - np.abs(rout[-1] * np.sin(tilt))
-    if not within_bounds(disk_height, (0, 1)):
+    disk_height = np.abs(b) - np.abs(redges[-1] * np.sin(tilt))
+    if not within_bounds(disk_height, (-1e8, 1)):
         return -np.inf
     # ensure that linear limb-darkening parameter is between 0 and 1
     if not within_bounds(u, u_bounds):
@@ -213,7 +214,7 @@ def disk_prior(P, redge_bounds, tau_bounds=(0, 1), rp_bounds=(0, 1),
     ### rin/rout
     # for inner radii find the closest two ring bounds and prevent cross over
     for r, rb in zip(redges, redge_bounds):
-        if not (rb[0] <= r <= rb[1])
+        if not (rb[0] <= r <= rb[1]):
             return -np.inf
     # if all conditions are met, then the parameters are allowed
     return 0.
