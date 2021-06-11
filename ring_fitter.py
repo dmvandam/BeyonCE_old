@@ -122,6 +122,9 @@ def compact_ringlets(inner_radii, outer_radii, merged_opacities):
         Compacted outer radii for rings (not ringlets) [R*].
     compact_opacities : array of floats
         Compacted opacities for rings (not ringlets) [-].
+    unpack_map : array of ints
+        Array that maps converts the compacted version, back to the expanded
+        version.
     '''
     # extract the unique values, sorting and reconstruction indices
     unique_data = np.unique(merged_opacities, return_index=True,
